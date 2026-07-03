@@ -225,8 +225,26 @@ def _cache_search(query: str, query_hash: str, results: str) -> None:
     )
 
 
+def _rephrase_query(claim: str) -> list[str]:
+    """Ask LLM to generate 2-3 alternative search query rephrasings targeting newsletters and news articles."""
+    prompt = f"""You are an expert news research assistant. Given the factual claim below, generate exactly 3 alternative search queries designed to find recent news articles, newsletters, and fact-checks about this topic.
+Make the queries varied (e.g. keyword-focused, headline-focused, and entity/date-focused).
+
+Claim: "{claim}"
+
+Return ONLY a JSON array of 3 query strings. Example: ["query 1", "query 2", "query 3"]"""
+    try:
+        res = llm.invoke(prompt)
+        queries = _parse_json(res.content)
+        if isinstance(queries, list) and len(queries) > 0:
+            return [str(q) for q in queries[:3]]
+    except Exception as e:
+        print(f"      [WARN] Rephrase failed: {e}")
+    return [claim]
+
+
 def search_claim(claim: str) -> str:
-    """Search a single claim. Uses cache if available."""
+    """Search a single claim across 2-3 LLM rephrasings. Uses cache if available."""
     query_hash = _sha256(claim)
 
     # Try cache first
@@ -235,13 +253,25 @@ def search_claim(claim: str) -> str:
         print(f"      -> cache hit")
         return cached
 
-    # Live search
-    try:
-        results = search_tool.invoke(claim)
-        results = results if results else "No results found."
-    except Exception as e:
-        print(f"      [WARN] Search error: {e}")
-        results = "Search error - no results available."
+    # Rephrase claim into 2-3 queries
+    queries = [claim]
+    rephrased = _rephrase_query(claim)
+    for q in rephrased:
+        if q not in queries:
+            queries.append(q)
+    
+    print(f"      -> Searching across {len(queries)} query angles (original + rephrasing)...")
+    
+    all_raw_results = []
+    for q in queries[:3]:
+        try:
+            res = search_tool.invoke(q)
+            if res and "No search results found" not in res:
+                all_raw_results.append(f"=== SEARCH RESULTS FOR: \"{q}\" ===\n{res}")
+        except Exception as e:
+            print(f"      [WARN] Search error for query '{q}': {e}")
+
+    results = "\n\n".join(all_raw_results) if all_raw_results else "No results found."
 
     # Cache for next time
     _cache_search(claim, query_hash, results)

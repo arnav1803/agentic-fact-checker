@@ -1,0 +1,15 @@
+# Backend Requirements
+# Install dependencies using the following command:
+# pip install -r requirements.txt
+
+langchain
+langchain-community
+langchain-groq
+tavily-python
+python-dotenv
+pymongo
+pydantic
+fastapi
+uvicorn
+certifi
+google-search-results

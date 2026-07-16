@@ -69,10 +69,9 @@ export function safeExternalUrl(raw: string): string | null {
   }
 }
 
-export function renderJustification(text: string): Array<
-  | { kind: "text"; value: string }
-  | { kind: "link"; value: string; href: string }
-> {
+export function renderJustification(
+  text: string,
+): Array<{ kind: "text"; value: string } | { kind: "link"; value: string; href: string }> {
   const parts: Array<
     { kind: "text"; value: string } | { kind: "link"; value: string; href: string }
   > = [];
@@ -80,8 +79,7 @@ export function renderJustification(text: string): Array<
   let last = 0;
   let m: RegExpExecArray | null;
   while ((m = regex.exec(text)) !== null) {
-    if (m.index > last)
-      parts.push({ kind: "text", value: text.slice(last, m.index) });
+    if (m.index > last) parts.push({ kind: "text", value: text.slice(last, m.index) });
     const safe = safeExternalUrl(m[0]);
     if (safe) parts.push({ kind: "link", value: m[0], href: safe });
     else parts.push({ kind: "text", value: m[0] });

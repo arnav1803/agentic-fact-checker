@@ -2,50 +2,110 @@
 api.py - FastAPI backend that exposes the fact-checker pipeline as REST endpoints.
 
 Endpoints:
-  POST /api/fact-check      - Run fact-check on an article
-  GET  /api/history          - List recent fact-checks
-  GET  /api/fact-check/{id}  - Get a specific fact-check by ID
+  POST   /api/fact-check       - Run fact-check on an article (dedupes recent identical articles)
+  GET    /api/history          - List recent fact-checks (pagination + search + per-user filter)
+  GET    /api/fact-check/{id}  - Get a specific fact-check by ID
+  DELETE /api/fact-check/{id}  - Delete a fact-check
+  GET    /api/health           - Health check (pings MongoDB)
+
+Per-user data (demo-grade):
+  The frontend sends the signed-in user's email in the `X-User-Email` header.
+  It is stored as `user_id` on each fact-check and used to filter history.
+  NOTE: this is NOT authentication — swap for verified Google ID tokens / JWTs
+  before any real deployment (see BACKEND_IDEAS.md).
 
 Run:
   python api.py
 """
 
-import sys
 import json
+import threading
 import time
-from datetime import datetime, timezone
+from collections import defaultdict, deque
+from datetime import datetime, timedelta, timezone
+from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from bson import ObjectId
 
 from config import GROQ_MODEL
-from db import fact_checks_col
-from fact_checker import fact_check
+from db import fact_checks_col, get_client
+from fact_checker import fact_check, fact_check_stream, fetch_article_text, _sha256
 
 # ── App ──────────────────────────────────────────────────────────────────────
 
 app = FastAPI(
     title="Agentic Fact-Checker API",
-    description="AI-powered news article verification using Groq LLM + DuckDuckGo Search",
-    version="1.0.0",
+    description="AI-powered news article verification using Groq LLM + web search",
+    version="2.0.0",
 )
 
-# Allow frontend to call the API (CORS)
+# Allow the local frontend dev servers to call the API (CORS)
+ALLOWED_ORIGINS = [
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],           # In production, restrict to your frontend URL
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# How long an identical article's result is reused instead of re-running the
+# (slow, paid) pipeline. Clients can bypass with force=true.
+DEDUP_WINDOW_HOURS = 1
+
+# ── Rate limiting (in-memory, per client IP) ─────────────────────────────────
+# The pipeline triggers paid LLM + search API calls, so cap how often a single
+# client can start it. Dedup cache hits do NOT count against the limit.
+
+RATE_LIMIT_RUNS = 6           # max pipeline runs ...
+RATE_LIMIT_WINDOW_SECONDS = 300   # ... per 5 minutes per IP
+
+_rate_lock = threading.Lock()
+_rate_buckets: dict[str, deque] = defaultdict(deque)
+
+
+def _check_rate_limit(request: Request) -> None:
+    """Raise 429 if this client started too many pipeline runs recently."""
+    ip = request.client.host if request.client else "unknown"
+    now = time.monotonic()
+    with _rate_lock:
+        bucket = _rate_buckets[ip]
+        while bucket and now - bucket[0] > RATE_LIMIT_WINDOW_SECONDS:
+            bucket.popleft()
+        if len(bucket) >= RATE_LIMIT_RUNS:
+            retry_in = int(RATE_LIMIT_WINDOW_SECONDS - (now - bucket[0])) + 1
+            raise HTTPException(
+                status_code=429,
+                detail=f"Rate limit reached ({RATE_LIMIT_RUNS} analyses per "
+                       f"{RATE_LIMIT_WINDOW_SECONDS // 60} minutes). "
+                       f"Try again in ~{retry_in}s.",
+            )
+        bucket.append(now)
+
+
 # ── Request / Response Models ────────────────────────────────────────────────
 
 class FactCheckRequest(BaseModel):
-    article_text: str
+    article_text: str = ""
+    url: str = Field(
+        default="",
+        description="Alternative to article_text: a news article URL to fetch and analyze",
+    )
     max_claims: int = Field(default=5, ge=1, le=10)
+    force: bool = Field(
+        default=False,
+        description="Re-run the pipeline even if this exact article was checked recently",
+    )
 
 
 class VerdictResponse(BaseModel):
@@ -74,7 +134,13 @@ class HistoryItemResponse(BaseModel):
     created_at: str
 
 
-# ── Helper ───────────────────────────────────────────────────────────────────
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+def _iso(value) -> str:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value or "")
+
 
 def _doc_to_response(doc: dict) -> dict:
     """Convert a MongoDB fact_check document to API response format."""
@@ -87,24 +153,72 @@ def _doc_to_response(doc: dict) -> dict:
         "duration_seconds": doc.get("duration_seconds", 0),
         "model": doc.get("model_used", GROQ_MODEL),
         "article_text": doc.get("article_text", ""),
-        "created_at": doc.get("created_at", datetime.now(timezone.utc)).isoformat()
-            if isinstance(doc.get("created_at"), datetime)
-            else str(doc.get("created_at", "")),
+        "created_at": _iso(doc.get("created_at", datetime.now(timezone.utc))),
     }
+
+
+def _parse_oid(fact_check_id: str) -> ObjectId:
+    try:
+        return ObjectId(fact_check_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid ID format")
+
+
+def _resolve_article_text(req: FactCheckRequest) -> str:
+    """Return the article text to analyze — fetched from the URL if given."""
+    if req.article_text.strip():
+        return req.article_text
+    if req.url.strip():
+        try:
+            return fetch_article_text(req.url.strip())
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+    raise HTTPException(status_code=400, detail="Provide article_text or url")
+
+
+def _find_recent_duplicate(article_text: str) -> Optional[dict]:
+    """Identical article checked within the dedup window? Return its doc."""
+    article_hash = _sha256(article_text)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=DEDUP_WINDOW_HOURS)
+    return fact_checks_col().find_one(
+        {"article_hash": article_hash, "created_at": {"$gte": cutoff}},
+        sort=[("created_at", -1)],
+    )
+
+
+def _tag_owner(doc_id: str, user_email: Optional[str]) -> None:
+    """Demo-grade ownership tag (see module docstring)."""
+    if user_email:
+        fact_checks_col().update_one(
+            {"_id": ObjectId(doc_id)}, {"$set": {"user_id": user_email}}
+        )
 
 
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
 @app.post("/api/fact-check")
-def run_fact_check(req: FactCheckRequest):
-    """Run the full fact-checking pipeline on an article."""
-    if not req.article_text.strip():
-        raise HTTPException(status_code=400, detail="article_text cannot be empty")
+def run_fact_check(
+    req: FactCheckRequest,
+    request: Request,
+    x_user_email: Optional[str] = Header(default=None),
+):
+    """Run the full fact-checking pipeline on an article (blocking)."""
+    article_text = _resolve_article_text(req)
+
+    # ── Dedup: identical article checked very recently? Return the saved result ──
+    if not req.force:
+        recent = _find_recent_duplicate(article_text)
+        if recent:
+            return _doc_to_response(recent)
+
+    _check_rate_limit(request)
 
     try:
-        result = fact_check(req.article_text, max_claims=req.max_claims)
+        result = fact_check(article_text, max_claims=req.max_claims)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Pipeline error: {str(e)}")
+
+    _tag_owner(result["_id"], x_user_email)
 
     # Fetch the saved document from MongoDB to get full data
     doc = fact_checks_col().find_one({"_id": ObjectId(result["_id"])})
@@ -117,25 +231,84 @@ def run_fact_check(req: FactCheckRequest):
         "claims": result["claims"],
         "verdicts": result["verdicts"],
         "credibility_score": result["credibility_score"],
+        "overall_verdict": result.get("overall_verdict", ""),
         "duration_seconds": result["duration_seconds"],
         "model": GROQ_MODEL,
-        "article_text": req.article_text.strip(),
+        "article_text": article_text.strip(),
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
 
+@app.post("/api/fact-check/stream")
+def run_fact_check_streaming(
+    req: FactCheckRequest,
+    request: Request,
+    x_user_email: Optional[str] = Header(default=None),
+):
+    """
+    Run the pipeline and stream REAL progress as NDJSON (one JSON object per line):
+      {"event":"step","step":"extract"}
+      {"event":"claims","claims":[...]}
+      {"event":"step","step":"search","current":1,"total":3,"claim":"..."}
+      {"event":"step","step":"verify"} / {"event":"step","step":"summarize"}
+      {"event":"done","result":{...full fact-check response...}}
+      {"event":"error","detail":"..."}   (on failure)
+    """
+    article_text = _resolve_article_text(req)
+
+    # Dedup hits stream a single "done" event immediately
+    if not req.force:
+        recent = _find_recent_duplicate(article_text)
+        if recent:
+            def cached_gen():
+                yield json.dumps({"event": "done", "result": _doc_to_response(recent)}) + "\n"
+            return StreamingResponse(cached_gen(), media_type="application/x-ndjson")
+
+    _check_rate_limit(request)
+
+    def event_gen():
+        try:
+            for event in fact_check_stream(article_text, max_claims=req.max_claims):
+                if event.get("event") == "done":
+                    result = event["result"]
+                    _tag_owner(result["_id"], x_user_email)
+                    doc = fact_checks_col().find_one({"_id": ObjectId(result["_id"])})
+                    payload = _doc_to_response(doc) if doc else result
+                    yield json.dumps({"event": "done", "result": payload}) + "\n"
+                else:
+                    yield json.dumps(event) + "\n"
+        except Exception as e:
+            yield json.dumps({"event": "error", "detail": f"Pipeline error: {str(e)}"}) + "\n"
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @app.get("/api/history")
-def get_history():
-    """Return the last 20 fact-checks, newest first."""
-    cursor = fact_checks_col().find(
-        {},
-        {
-            "_id": 1,
-            "article_text": 1,
-            "credibility_score": 1,
-            "created_at": 1,
-        },
-    ).sort("created_at", -1).limit(20)
+def get_history(
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    q: Optional[str] = Query(default=None, description="Case-insensitive text filter"),
+    x_user_email: Optional[str] = Header(default=None),
+):
+    """Return fact-checks, newest first. Filters by user when X-User-Email is sent."""
+    query: dict = {}
+    if x_user_email:
+        query["user_id"] = x_user_email
+    if q and q.strip():
+        import re as _re
+        query["article_text"] = {"$regex": _re.escape(q.strip()), "$options": "i"}
+
+    cursor = (
+        fact_checks_col()
+        .find(query, {"_id": 1, "article_text": 1, "credibility_score": 1, "created_at": 1})
+        .sort("created_at", -1)
+        .skip(offset)
+        .limit(limit)
+    )
 
     items = []
     for doc in cursor:
@@ -144,9 +317,7 @@ def get_history():
             "_id": str(doc["_id"]),
             "article_text": article[:200] if article else "",
             "credibility_score": doc.get("credibility_score", 0.5),
-            "created_at": doc.get("created_at", "").isoformat()
-                if isinstance(doc.get("created_at"), datetime)
-                else str(doc.get("created_at", "")),
+            "created_at": _iso(doc.get("created_at", "")),
         })
     return items
 
@@ -154,10 +325,7 @@ def get_history():
 @app.get("/api/fact-check/{fact_check_id}")
 def get_fact_check(fact_check_id: str):
     """Get a specific fact-check result by its MongoDB _id."""
-    try:
-        oid = ObjectId(fact_check_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid ID format")
+    oid = _parse_oid(fact_check_id)
 
     doc = fact_checks_col().find_one({"_id": oid})
     if not doc:
@@ -166,10 +334,70 @@ def get_fact_check(fact_check_id: str):
     return _doc_to_response(doc)
 
 
+@app.delete("/api/fact-check/{fact_check_id}")
+def delete_fact_check(fact_check_id: str):
+    """Delete a fact-check by its MongoDB _id."""
+    oid = _parse_oid(fact_check_id)
+
+    result = fact_checks_col().delete_one({"_id": oid})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Fact-check not found")
+
+    return {"deleted": True, "_id": fact_check_id}
+
+
+@app.get("/api/stats")
+def get_stats(x_user_email: Optional[str] = Header(default=None)):
+    """Aggregate stats: total checks, average score, verdict distribution."""
+    match: dict = {}
+    if x_user_email:
+        match["user_id"] = x_user_email
+
+    pipeline = [
+        {"$match": match},
+        {
+            "$group": {
+                "_id": None,
+                "total": {"$sum": 1},
+                "avg_score": {"$avg": "$credibility_score"},
+            }
+        },
+    ]
+    agg = list(fact_checks_col().aggregate(pipeline))
+    total = agg[0]["total"] if agg else 0
+    avg_score = round(agg[0]["avg_score"], 3) if agg else 0.0
+
+    verdict_pipeline = [
+        {"$match": match},
+        {"$unwind": "$verdicts"},
+        {"$group": {"_id": "$verdicts.verdict", "count": {"$sum": 1}}},
+    ]
+    verdict_counts = {
+        doc["_id"]: doc["count"]
+        for doc in fact_checks_col().aggregate(verdict_pipeline)
+    }
+
+    return {
+        "total_checks": total,
+        "average_credibility": avg_score,
+        "verdict_distribution": verdict_counts,
+    }
+
+
 @app.get("/api/health")
 def health():
-    """Health check endpoint."""
-    return {"status": "ok", "model": GROQ_MODEL}
+    """Health check: verifies the API is up AND MongoDB is reachable."""
+    mongo_ok = True
+    try:
+        get_client().admin.command("ping")
+    except Exception:
+        mongo_ok = False
+
+    return {
+        "status": "ok" if mongo_ok else "degraded",
+        "mongo": "up" if mongo_ok else "down",
+        "model": GROQ_MODEL,
+    }
 
 
 # ── Run ──────────────────────────────────────────────────────────────────────

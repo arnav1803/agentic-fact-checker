@@ -1,18 +1,16 @@
-import { useRef, useState, useEffect } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useRef, useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ShieldCheck, XCircle, Loader2 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
 
-import { analyzeArticle } from "@/lib/api";
-import type { FactCheckResult } from "@/lib/types";
+import { analyzeArticleStream } from "@/lib/api";
+import { clearDraft, recordResult, useUserKey } from "@/lib/user-store";
+import type { AnalysisProgress, FactCheckResult } from "@/lib/types";
 import { InputForm } from "@/features/fact-check/InputForm";
-import {
-  ProcessingSteps,
-  ResultsSkeleton,
-} from "@/features/fact-check/ProcessingSteps";
+import { ProcessingSteps, ResultsSkeleton } from "@/features/fact-check/ProcessingSteps";
 import { ResultView } from "@/features/fact-check/ResultView";
 import { HistorySidebar } from "@/features/fact-check/HistorySidebar";
 
@@ -30,47 +28,74 @@ export const Route = createFileRoute("/analyze")({
   component: HomePage,
 });
 
-const REQUEST_TIMEOUT_MS = 60_000;
+// The stream sends an event per pipeline step; abort only if it goes silent.
+const IDLE_TIMEOUT_MS = 90_000;
+
+type AnalyzeInput = { article?: string; url?: string; maxClaims: number };
 
 function HomePage() {
-  const { session, loading: authLoading } = useAuth();
-  const navigate = useNavigate();
-  
-  useEffect(() => {
-    if (!authLoading && !session) navigate({ to: "/" });
-  }, [session, authLoading, navigate]);
+  // Guests are allowed: their checks are saved under the "guest" namespace
+  // and migrate naturally once they sign in and re-run analyses.
+  const { loading: authLoading } = useAuth();
 
   const qc = useQueryClient();
+  const userKey = useUserKey();
   const abortRef = useRef<AbortController | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const [result, setResult] = useState<FactCheckResult | null>(null);
+  const [progress, setProgress] = useState<AnalysisProgress | null>(null);
 
-  const mutation = useMutation<
-    FactCheckResult,
-    Error,
-    { article: string; maxClaims: number }
-  >({
-    mutationFn: async ({ article, maxClaims }) => {
+  const mutation = useMutation<FactCheckResult, Error, AnalyzeInput>({
+    mutationFn: async ({ article, url, maxClaims }) => {
       abortRef.current?.abort();
       const ctrl = new AbortController();
       abortRef.current = ctrl;
-      const timeout = setTimeout(
+      setProgress(null);
+
+      // Idle watchdog: each streamed event resets the clock, so long pipelines
+      // are fine but a stalled connection still aborts.
+      let idleTimer = setTimeout(
         () => ctrl.abort(new DOMException("Timeout", "AbortError")),
-        REQUEST_TIMEOUT_MS,
+        IDLE_TIMEOUT_MS,
       );
+      const resetIdle = () => {
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(
+          () => ctrl.abort(new DOMException("Timeout", "AbortError")),
+          IDLE_TIMEOUT_MS,
+        );
+      };
+
       try {
-        return await analyzeArticle(
-          { article_text: article, max_claims: maxClaims },
+        return await analyzeArticleStream(
+          { article_text: article, url, max_claims: maxClaims },
+          (ev) => {
+            resetIdle();
+            if (ev.event === "claims" && ev.claims) {
+              setProgress((p) => ({ phase: p?.phase ?? "extract", claims: ev.claims }));
+            } else if (ev.event === "step" && ev.step) {
+              setProgress((p) => ({
+                claims: p?.claims,
+                phase: ev.step!,
+                searchCurrent: ev.current,
+                searchTotal: ev.total,
+                claim: ev.claim,
+              }));
+            }
+          },
           ctrl.signal,
+          userKey,
         );
       } finally {
-        clearTimeout(timeout);
+        clearTimeout(idleTimer);
       }
     },
     retry: 1,
     onSuccess: (data) => {
       setResult(data);
       setServerError(null);
+      recordResult(userKey, data);
+      clearDraft(userKey);
       qc.invalidateQueries({ queryKey: ["history"] });
       toast.success("Analysis complete");
     },
@@ -94,7 +119,7 @@ function HomePage() {
     mutation.reset();
   };
 
-  if (authLoading || !session) {
+  if (authLoading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
         <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -115,8 +140,8 @@ function HomePage() {
             Fact-check any article in seconds.
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-sm text-muted-foreground md:text-base">
-            Paste a news article and get a credibility score, per-claim
-            verdicts, and cited sources — powered by LLMs and web search.
+            Paste a news article and get a credibility score, per-claim verdicts, and cited sources
+            — powered by LLMs and web search.
           </p>
         </div>
       </section>
@@ -126,10 +151,11 @@ function HomePage() {
           <InputForm
             loading={isLoading}
             serverError={serverError}
-            onSubmit={(article, maxClaims) => {
+            userKey={userKey}
+            onSubmit={(input) => {
               setServerError(null);
               setResult(null);
-              mutation.mutate({ article, maxClaims });
+              mutation.mutate(input);
             }}
           />
 
@@ -145,19 +171,15 @@ function HomePage() {
                   <XCircle className="size-3.5" /> Cancel
                 </button>
               </div>
-              <ProcessingSteps />
+              <ProcessingSteps progress={progress} />
               <ResultsSkeleton />
             </div>
           ) : mutation.isError &&
             !((mutation.error as Error).name === "AbortError") &&
             !serverError ? (
             <div className="glass-card p-6 text-center">
-              <p className="text-sm text-foreground">
-                We couldn't complete the analysis.
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {mutation.error.message}
-              </p>
+              <p className="text-sm text-foreground">We couldn't complete the analysis.</p>
+              <p className="mt-1 text-xs text-muted-foreground">{mutation.error.message}</p>
               <button
                 onClick={() => mutation.reset()}
                 className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"

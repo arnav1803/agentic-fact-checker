@@ -1,15 +1,15 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
+
 import { getFactCheck } from "@/lib/api";
+import { getLocalResult, saveDraft, useUserKey } from "@/lib/user-store";
 import { ResultView } from "@/features/fact-check/ResultView";
 
 export const Route = createFileRoute("/history_/$id")({
   head: () => ({
-    meta: [
-      { title: "Fact-check result — FactCheck AI" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Fact-check result — FactCheck AI" }, { name: "robots", content: "noindex" }],
   }),
   component: HistoryDetailPage,
   errorComponent: HistoryDetailError,
@@ -26,13 +26,7 @@ export const Route = createFileRoute("/history_/$id")({
   ),
 });
 
-function HistoryDetailError({
-  error,
-  reset,
-}: {
-  error: Error;
-  reset: () => void;
-}) {
+function HistoryDetailError({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
   return (
     <div className="glass-card p-8 text-center">
@@ -53,19 +47,39 @@ function HistoryDetailError({
 
 function HistoryDetailPage() {
   const { id } = Route.useParams();
+  const userKey = useUserKey();
+  const navigate = useNavigate();
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["fact-check", id],
-    queryFn: ({ signal }) => getFactCheck(id, signal),
+    queryKey: ["fact-check", userKey, id],
+    // Local-first: results are cached per user; fall back to the server copy.
+    queryFn: ({ signal }) => getLocalResult(userKey, id) ?? getFactCheck(id, signal),
   });
+
+  const recheck = () => {
+    if (!data?.article_text) return;
+    saveDraft(userKey, data.article_text);
+    toast.info("Article loaded into the analyzer");
+    navigate({ to: "/analyze" });
+  };
 
   return (
     <div className="space-y-6">
-      <Link
-        to="/history"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="size-4" /> All history
-      </Link>
+      <div className="flex items-center justify-between">
+        <Link
+          to="/history"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="size-4" /> All history
+        </Link>
+        {data?.article_text ? (
+          <button
+            onClick={recheck}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent"
+          >
+            <RotateCcw className="size-3.5" /> Re-check this article
+          </button>
+        ) : null}
+      </div>
 
       {isLoading ? (
         <div className="space-y-4">

@@ -10,7 +10,10 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Sign in — FactCheck AI" },
-      { name: "description", content: "Sign in or create an account to save your fact-check history." },
+      {
+        name: "description",
+        content: "Sign in or create an account to save your fact-check history.",
+      },
     ],
   }),
   component: AuthPage,
@@ -20,7 +23,13 @@ const emailSchema = z.string().trim().email("Enter a valid email");
 const passwordSchema = z.string().min(6, "Password must be at least 6 characters").max(72);
 
 function AuthPage() {
-  const { session, loading: authLoading, signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuth();
+  const {
+    session,
+    loading: authLoading,
+    signInWithEmail,
+    signUpWithEmail,
+    signInWithGoogle,
+  } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
@@ -67,14 +76,19 @@ function AuthPage() {
       }
 
       // Use Google's OAuth 2.0 popup flow
-      const width = 500, height = 600;
+      const width = 500,
+        height = 600;
       const left = window.screenX + (window.innerWidth - width) / 2;
       const top = window.screenY + (window.innerHeight - height) / 2;
       const redirectUri = window.location.origin;
       const scope = "openid email profile";
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}&prompt=select_account`;
 
-      const popup = window.open(authUrl, "google-auth", `width=${width},height=${height},left=${left},top=${top}`);
+      const popup = window.open(
+        authUrl,
+        "google-auth",
+        `width=${width},height=${height},left=${left},top=${top}`,
+      );
       if (!popup) {
         toast.error("Popup blocked. Please allow popups for this site.");
         return;
@@ -108,7 +122,7 @@ function AuthPage() {
       // Fetch user info from Google
       const userInfo = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
         headers: { Authorization: `Bearer ${token}` },
-      }).then(r => r.json());
+      }).then((r) => r.json());
 
       await signInWithGoogle(userInfo.email, userInfo.name, userInfo.picture);
       toast.success("Signed in with Google");
@@ -132,7 +146,9 @@ function AuthPage() {
             {mode === "login" ? "Sign in to FactCheck AI" : "Create your account"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {mode === "login" ? "Save your history and preferences." : "It only takes a few seconds."}
+            {mode === "login"
+              ? "Save your history and preferences."
+              : "It only takes a few seconds."}
           </p>
         </div>
 
@@ -168,7 +184,10 @@ function AuthPage() {
             />
           </div>
           <div>
-            <label htmlFor="password" className="mb-1 block text-xs font-medium text-muted-foreground">
+            <label
+              htmlFor="password"
+              className="mb-1 block text-xs font-medium text-muted-foreground"
+            >
               Password
             </label>
             <input
@@ -217,10 +236,22 @@ function AuthPage() {
 function GoogleIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z" />
-      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.99.66-2.25 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z" />
-      <path fill="#FBBC05" d="M5.84 14.11a6.6 6.6 0 0 1 0-4.22V7.05H2.18a11 11 0 0 0 0 9.9l3.66-2.84z" />
-      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.2 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.05l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38z" />
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.99.66-2.25 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.11a6.6 6.6 0 0 1 0-4.22V7.05H2.18a11 11 0 0 0 0 9.9l3.66-2.84z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.2 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.05l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38z"
+      />
     </svg>
   );
 }

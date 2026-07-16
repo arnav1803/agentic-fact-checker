@@ -25,9 +25,7 @@ function ClaimCardImpl({ verdict, index }: Props) {
       className="glass-card p-5"
     >
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm leading-relaxed text-foreground">
-          {verdict.claim}
-        </p>
+        <p className="text-sm leading-relaxed text-foreground">{verdict.claim}</p>
         <span
           className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ring-1 ${c.bg} ${c.text} ${c.ring}`}
         >

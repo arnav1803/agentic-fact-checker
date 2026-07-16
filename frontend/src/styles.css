@@ -132,21 +132,9 @@
   }
   body {
     background-image:
-      radial-gradient(
-        ellipse 80% 60% at 20% 0%,
-        var(--grad-1),
-        transparent 60%
-      ),
-      radial-gradient(
-        ellipse 60% 50% at 90% 20%,
-        var(--grad-2),
-        transparent 60%
-      ),
-      radial-gradient(
-        ellipse 70% 50% at 50% 100%,
-        var(--grad-3),
-        transparent 60%
-      );
+      radial-gradient(ellipse 80% 60% at 20% 0%, var(--grad-1), transparent 60%),
+      radial-gradient(ellipse 60% 50% at 90% 20%, var(--grad-2), transparent 60%),
+      radial-gradient(ellipse 70% 50% at 50% 100%, var(--grad-3), transparent 60%);
     background-attachment: fixed;
     min-height: 100vh;
   }
@@ -168,21 +156,9 @@
   position: absolute;
   inset: 0;
   background-image:
-    radial-gradient(
-      circle at 20% 30%,
-      var(--mesh-1),
-      transparent 40%
-    ),
-    radial-gradient(
-      circle at 80% 20%,
-      var(--mesh-2),
-      transparent 45%
-    ),
-    radial-gradient(
-      circle at 50% 80%,
-      var(--mesh-3),
-      transparent 45%
-    );
+    radial-gradient(circle at 20% 30%, var(--mesh-1), transparent 40%),
+    radial-gradient(circle at 80% 20%, var(--mesh-2), transparent 45%),
+    radial-gradient(circle at 50% 80%, var(--mesh-3), transparent 45%);
   filter: blur(60px);
   animation: mesh-drift 20s ease-in-out infinite alternate;
   pointer-events: none;

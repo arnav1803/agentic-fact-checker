@@ -2,16 +2,24 @@
 seed_prompts.py — Populate the 'prompts' collection with default templates.
 
 Run once:  python seed_prompts.py
-Re-run to upgrade prompts to v2.
+Re-run to upgrade prompts to the latest version (v3).
+
+v3 changes:
+  - Both prompts receive {current_date} so the LLM never falls back on its
+    stale training-data sense of "now" (e.g. assuming a 2026 event hasn't
+    happened yet).
+  - Verification explicitly forbids using internal knowledge to override
+    live search evidence, and clarifies NOT_ENOUGH_INFO vs REFUTES.
 """
 
 from models import PromptDoc
 from prompts import upsert_prompt, deactivate_prompt
 
 
-# ── v2 Prompt Templates (upgraded) ──────────────────────────────────────────
+# ── v3 Prompt Templates ──────────────────────────────────────────────────────
 
-CLAIM_EXTRACTION_V2 = """You are an elite investigative fact-checker at a Pulitzer-winning newsroom.
+CLAIM_EXTRACTION_V3 = """You are an elite investigative fact-checker at a Pulitzer-winning newsroom.
+Today's date is {current_date}. Keep this in mind when interpreting time references like "today", "last week", or years — events up to this date may already have occurred even if they are after your training cutoff.
 
 Your job: dissect a news article and extract its most important, verifiable factual claims.
 
@@ -44,10 +52,14 @@ Return ONLY a valid JSON array of strings. No explanation, no preamble.
 Example: ["The WHO reported 1.2 million malaria deaths in 2025", "India's GDP grew 7.2% in Q3 2025"]"""
 
 
-CLAIM_VERIFICATION_V2 = """You are a senior fact-checking analyst. Your verdicts will be published and must be defensible.
+CLAIM_VERIFICATION_V3 = """You are a senior fact-checking analyst. Your verdicts will be published and must be defensible.
+Today's date is {current_date}.
+
+## CRITICAL — Evidence beats memory:
+Your training data has a cutoff, so you may not know about recent events. The search evidence below comes from LIVE web search performed today. When the evidence addresses a claim, you MUST base your verdict on that evidence — even if it contradicts what you "remember". Never mark a claim NOT_ENOUGH_INFO or REFUTES just because the event is after your training cutoff; check what the live evidence actually says.
 
 ## Your Task:
-For each claim below, carefully analyze the search evidence and render a verdict. 
+For each claim below, carefully analyze the search evidence and render a verdict.
 IMPORTANT: Our automated investigative pipeline has OPENED AND SCRAPED actual web page links found in search results. Look specifically for the sections labeled `--- SCRAPED SOURCE PAGE: [url] ---`. You MUST base your analysis on the actual text retrieved from these opened links whenever available, as it provides live, full-context source verification beyond just search engine snippets.
 
 ## Verdict Rules:
@@ -62,6 +74,7 @@ IMPORTANT: Our automated investigative pipeline has OPENED AND SCRAPED actual we
 - Credible sources directly contradict the claim with specific counter-evidence found in the scraped pages or search snippets
 - The claim contains a factual error that sources explicitly correct (wrong number, wrong date, wrong person)
 - Do NOT use REFUTES just because you can't find evidence -- that's NOT_ENOUGH_INFO
+- Do NOT use REFUTES based on your own memory of events -- only on the evidence provided
 - Confidence should reflect the strength of the contradiction
 
 **NOT_ENOUGH_INFO** - Use when:
@@ -75,6 +88,7 @@ IMPORTANT: Our automated investigative pipeline has OPENED AND SCRAPED actual we
 - Are the sources credible (official sites, major outlets) or questionable (blogs, social media)?
 - Could the claim be true but just not yet reported online?
 - Am I confusing "no evidence found" with "evidence of absence"?
+- Am I overriding live evidence with my stale training memory? (Never do this.)
 
 ## Claims to verify:
 {claims_text}
@@ -95,40 +109,41 @@ Return ONLY a valid JSON array. No commentary before or after.
 
 
 DEFAULTS = [
-    # ── v2: Claim Extraction ──
+    # ── v3: Claim Extraction ──
     PromptDoc(
         name="claim_extraction",
-        version=2,
-        description="v2: Expert-level claim extraction with detailed criteria, ranking, and rejection rules.",
-        variables=["article_text", "max_claims"],
-        template=CLAIM_EXTRACTION_V2,
+        version=3,
+        description="v3: Adds current-date awareness to v2's expert-level extraction criteria.",
+        variables=["article_text", "max_claims", "current_date"],
+        template=CLAIM_EXTRACTION_V3,
     ),
-    # ── v2: Claim Verification ──
+    # ── v3: Claim Verification ──
     PromptDoc(
         name="claim_verification",
-        version=2,
-        description="v2: Analyst-grade verification with structured verdict rules, confidence calibration, and critical thinking checklist.",
-        variables=["claims_text", "evidence_text"],
-        template=CLAIM_VERIFICATION_V2,
+        version=3,
+        description="v3: Adds current-date awareness and 'evidence beats memory' rules to v2's verification.",
+        variables=["claims_text", "evidence_text", "current_date"],
+        template=CLAIM_VERIFICATION_V3,
     ),
 ]
 
 
 def seed():
-    # Deactivate old v1 prompts
+    # Deactivate old prompt versions
     for name in ["claim_extraction", "claim_verification"]:
-        try:
-            deactivate_prompt(name, version=1)
-            print(f"  [--] Deactivated: {name} v1")
-        except Exception:
-            pass
+        for version in [1, 2]:
+            try:
+                deactivate_prompt(name, version=version)
+                print(f"  [--] Deactivated: {name} v{version}")
+            except Exception:
+                pass
 
-    # Seed new v2 prompts
+    # Seed new v3 prompts
     for prompt in DEFAULTS:
         upsert_prompt(prompt)
         print(f"  [OK] Seeded: {prompt.name} v{prompt.version}")
 
-    print("\nDone! v2 prompts are now active in MongoDB.")
+    print("\nDone! v3 prompts are now active in MongoDB.")
 
 
 if __name__ == "__main__":

@@ -44,29 +44,55 @@ os.environ["TAVILY_API_KEY"] = TAVILY_API_KEY
 import urllib.request
 import urllib.error
 
+def _fetch_raw_html_or_msn(url: str, timeout: int = 12) -> str:
+    """
+    Fetch content of URL. If it's an MSN URL containing /ar-ID,
+    fetches the article dynamically using MSN's CMS API.
+    Otherwise, downloads the raw HTML page.
+    """
+    msn_match = re.search(r'/ar-([a-zA-Z0-9]+)', url)
+    if msn_match and "msn.com" in url.lower():
+        article_id = msn_match.group(1)
+        api_url = f"https://cdn.query.prod.cms.msn.com/cms/api/amp/article/{article_id}"
+        try:
+            req = urllib.request.Request(
+                api_url,
+                headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+            )
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                title = data.get("title", "")
+                body = data.get("body", "")
+                html_content = f"<h1>{title}</h1>\n\n{body}" if title else body
+                return html_content
+        except Exception as e:
+            # If the API call fails, fall back to normal fetch
+            pass
+
+    req = urllib.request.Request(
+        url,
+        headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        raw = resp.read()
+        try:
+            return raw.decode('utf-8')
+        except UnicodeDecodeError:
+            return raw.decode('latin-1', errors='ignore')
+
 def _scrape_url(url: str) -> str:
     """Open a search result link, download the page, strip HTML, return clean text."""
     try:
-        req = urllib.request.Request(
-            url,
-            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
-        )
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            raw = resp.read()
-            # Try utf-8, fall back to latin-1
-            try:
-                html = raw.decode('utf-8')
-            except UnicodeDecodeError:
-                html = raw.decode('latin-1', errors='ignore')
-            # Strip scripts, styles, nav, footer, header tags
-            for tag in ['script', 'style', 'nav', 'footer', 'header', 'aside']:
-                html = re.sub(rf'<{tag}[^>]*>.*?</{tag}>', '', html, flags=re.DOTALL | re.IGNORECASE)
-            # Strip all remaining HTML tags
-            text = re.sub(r'<[^>]+>', ' ', html)
-            # Collapse whitespace
-            clean_text = ' '.join(text.split())
-            # Return up to 2500 chars of clean content
-            return clean_text[:2500]
+        html = _fetch_raw_html_or_msn(url, timeout=8)
+        # Strip scripts, styles, nav, footer, header tags
+        for tag in ['script', 'style', 'nav', 'footer', 'header', 'aside']:
+            html = re.sub(rf'<{tag}[^>]*>.*?</{tag}>', '', html, flags=re.DOTALL | re.IGNORECASE)
+        # Strip all remaining HTML tags
+        text = re.sub(r'<[^>]+>', ' ', html)
+        # Collapse whitespace
+        clean_text = ' '.join(text.split())
+        # Return up to 2500 chars of clean content
+        return clean_text[:2500]
     except Exception as e:
         print(f"         [SCRAPE FAIL] {url[:60]}... -> {e}")
         return ""
@@ -597,19 +623,9 @@ def fetch_article_text(url: str) -> str:
         raise ValueError("URL must start with http:// or https://")
 
     try:
-        req = urllib.request.Request(
-            url,
-            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
-        )
-        with urllib.request.urlopen(req, timeout=12) as resp:
-            raw = resp.read()
+        html = _fetch_raw_html_or_msn(url, timeout=12)
     except Exception as e:
         raise ValueError(f"Could not fetch the URL: {e}")
-
-    try:
-        html = raw.decode('utf-8')
-    except UnicodeDecodeError:
-        html = raw.decode('latin-1', errors='ignore')
 
     # Drop non-content sections
     for tag in ['script', 'style', 'nav', 'footer', 'header', 'aside', 'form', 'noscript']:

@@ -27,7 +27,7 @@ function ClaimCardImpl({ verdict, index }: Props) {
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm leading-relaxed text-foreground">{verdict.claim}</p>
         <span
-          className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ring-1 ${c.bg} ${c.text} ${c.ring}`}
+          className={`shrink-0 rounded-sm px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider border ${c.bg} ${c.text} border-current/20`}
         >
           {verdictLabel(verdict.verdict)}
         </span>
@@ -36,10 +36,10 @@ function ClaimCardImpl({ verdict, index }: Props) {
       <div className="mt-4">
         <div className="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
           <span>Confidence</span>
-          <span className={`font-medium tabular-nums ${c.text}`}>{pct}%</span>
+          <span className={`font-semibold tabular-nums ${c.text}`}>{pct}%</span>
         </div>
         <div
-          className="h-1.5 w-full overflow-hidden rounded-full bg-white/5"
+          className="h-1.5 w-full overflow-hidden rounded bg-muted"
           role="progressbar"
           aria-valuenow={pct}
           aria-valuemin={0}

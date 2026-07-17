@@ -129,19 +129,17 @@ function HomePage() {
 
   return (
     <div className="space-y-10">
-      <section className="relative overflow-hidden rounded-3xl">
-        <div className="mesh-bg" />
-        <div className="relative z-10 px-6 py-14 text-center md:py-20">
-          <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-muted-foreground backdrop-blur">
-            <ShieldCheck className="size-3.5 text-primary" />
+      <section className="glass-card p-6 md:p-8 relative overflow-hidden">
+        <div className="relative z-10">
+          <div className="mb-3 inline-flex items-center gap-1.5 rounded bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+            <ShieldCheck className="size-3.5" />
             AI-powered news verification
           </div>
-          <h1 className="mx-auto max-w-3xl text-3xl font-semibold tracking-tight text-foreground md:text-5xl">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
             Fact-check any article in seconds.
           </h1>
-          <p className="mx-auto mt-4 max-w-xl text-sm text-muted-foreground md:text-base">
-            Paste a news article and get a credibility score, per-claim verdicts, and cited sources
-            — powered by LLMs and web search.
+          <p className="mt-2 max-w-2xl text-xs text-muted-foreground leading-relaxed">
+            Paste a news article or URL below to extract factual claims, search live sources, and compute a credibility rating using Groq LLMs and real-time search.
           </p>
         </div>
       </section>

@@ -114,7 +114,7 @@ export function InputForm({ loading, serverError, userKey, onSubmit }: Props) {
     >
       <div>
         <div className="mb-2 flex items-center justify-between">
-          <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-0.5 text-xs">
+          <div className="flex items-center gap-1 rounded border border-border bg-secondary/50 p-0.5 text-xs">
             <ModeTab
               active={mode === "text"}
               onClick={() => {
@@ -171,7 +171,7 @@ export function InputForm({ loading, serverError, userKey, onSubmit }: Props) {
               placeholder="Paste your news article here... (Ctrl+Enter to analyze)"
               aria-invalid={showError ? true : undefined}
               aria-describedby="article-help article-error"
-              className="w-full max-h-[420px] resize-y rounded-xl border border-white/10 bg-black/30 p-4 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/70 focus:border-primary/60 focus:outline-none"
+              className="w-full max-h-[420px] resize-y rounded-lg border border-border bg-card p-4 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:border-primary/60 focus:outline-none"
             />
             <div
               id="article-help"
@@ -204,7 +204,7 @@ export function InputForm({ loading, serverError, userKey, onSubmit }: Props) {
               placeholder="https://example.com/news/some-article"
               aria-invalid={showError ? true : undefined}
               aria-describedby="article-help article-error"
-              className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/70 focus:border-primary/60 focus:outline-none"
+              className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary/60 focus:outline-none"
             />
             <p id="article-help" className="mt-1.5 text-xs text-muted-foreground">
               The backend fetches the page and extracts the article text automatically.
@@ -278,10 +278,10 @@ function ModeTab({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium transition ${
+      className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-semibold transition border ${
         active
-          ? "bg-primary text-primary-foreground"
-          : "text-muted-foreground hover:text-foreground"
+          ? "bg-card border-border text-foreground shadow-sm"
+          : "border-transparent text-muted-foreground hover:text-foreground hover:bg-card/40"
       }`}
     >
       {icon}

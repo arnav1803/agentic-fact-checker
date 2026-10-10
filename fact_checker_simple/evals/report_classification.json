@@ -1,0 +1,112 @@
+{
+  "accuracy": 1.0,
+  "macro_f1": 1.0,
+  "labels": [
+    "SUPPORTS",
+    "REFUTES",
+    "NOT_ENOUGH_INFO"
+  ],
+  "confusion_matrix": [
+    [
+      5,
+      0,
+      0
+    ],
+    [
+      0,
+      5,
+      0
+    ],
+    [
+      0,
+      0,
+      2
+    ]
+  ],
+  "details": [
+    {
+      "id": "t01",
+      "claim": "The Eiffel Tower is located in Paris, France.",
+      "gold": "SUPPORTS",
+      "pred": "SUPPORTS",
+      "confidence": 0.9
+    },
+    {
+      "id": "t02",
+      "claim": "Mount Everest is the highest mountain above sea level on Earth.",
+      "gold": "SUPPORTS",
+      "pred": "SUPPORTS",
+      "confidence": 0.9
+    },
+    {
+      "id": "t03",
+      "claim": "The 2024 Summer Olympic Games were held in Paris, France.",
+      "gold": "SUPPORTS",
+      "pred": "SUPPORTS",
+      "confidence": 0.9
+    },
+    {
+      "id": "t04",
+      "claim": "Water is composed of hydrogen and oxygen atoms.",
+      "gold": "SUPPORTS",
+      "pred": "SUPPORTS",
+      "confidence": 0.9
+    },
+    {
+      "id": "t05",
+      "claim": "The Great Wall of China is located in China.",
+      "gold": "SUPPORTS",
+      "pred": "SUPPORTS",
+      "confidence": 0.95
+    },
+    {
+      "id": "f01",
+      "claim": "Humans use only 10 percent of their brains.",
+      "gold": "REFUTES",
+      "pred": "REFUTES",
+      "confidence": 0.9
+    },
+    {
+      "id": "f02",
+      "claim": "The Earth is the largest planet in the Solar System.",
+      "gold": "REFUTES",
+      "pred": "REFUTES",
+      "confidence": 0.95
+    },
+    {
+      "id": "f03",
+      "claim": "Mount Everest is located on the continent of Africa.",
+      "gold": "REFUTES",
+      "pred": "REFUTES",
+      "confidence": 0.95
+    },
+    {
+      "id": "f04",
+      "claim": "The Sun revolves around the Earth once per day.",
+      "gold": "REFUTES",
+      "pred": "REFUTES",
+      "confidence": 0.95
+    },
+    {
+      "id": "f05",
+      "claim": "The Great Wall of China is the only man-made object visible from the Moon with the naked eye.",
+      "gold": "REFUTES",
+      "pred": "REFUTES",
+      "confidence": 0.95
+    },
+    {
+      "id": "u01",
+      "claim": "A startup named Qwbblex Dynamics raised 4.2 billion dollars in March 2025.",
+      "gold": "NOT_ENOUGH_INFO",
+      "pred": "NOT_ENOUGH_INFO",
+      "confidence": 0.0
+    },
+    {
+      "id": "u02",
+      "claim": "There are exactly 7,431 undiscovered species of blue beetle in the Amazon rainforest.",
+      "gold": "NOT_ENOUGH_INFO",
+      "pred": "NOT_ENOUGH_INFO",
+      "confidence": 0.0
+    }
+  ]
+}

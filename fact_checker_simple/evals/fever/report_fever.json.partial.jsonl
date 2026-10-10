@@ -1,0 +1,53 @@
+{"id": "fever-167448", "claim": "Cadet Kelly failed to be released.", "gold": "REFUTES", "pred": "REFUTES", "raw_pred": "REFUTES", "confidence": 0.9}
+{"id": "fever-125869", "claim": "Ann Richards was an actor.", "gold": "NOT_ENOUGH_INFO", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.8}
+{"id": "fever-8781", "claim": "Byron Howard was nominated for a film award.", "gold": "SUPPORTS", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.9}
+{"id": "fever-204647", "claim": "Rio's sequel was released on April 11, 2012.", "gold": "REFUTES", "pred": "REFUTES", "raw_pred": "REFUTES", "confidence": 0.9}
+{"id": "fever-149697", "claim": "John DiMaggio did a voice-over role in a series created by Alex Hirsch.", "gold": "NOT_ENOUGH_INFO", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.8}
+{"id": "fever-72358", "claim": "Ripon College is in hell.", "gold": "REFUTES", "pred": "REFUTES", "raw_pred": "REFUTES", "confidence": 0.9}
+{"id": "fever-171638", "claim": "Dave Gibbons is a writer.", "gold": "SUPPORTS", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.9}
+{"id": "fever-14069", "claim": "Qui-Gon Jinn is a fictional Star Wars character.", "gold": "SUPPORTS", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.9}
+{"id": "fever-158901", "claim": "Unison (Celine Dion album) was originally released by Warner Music Group.", "gold": "REFUTES", "pred": "REFUTES", "raw_pred": "REFUTES", "confidence": 0.9}
+{"id": "fever-61504", "claim": "Yale University's alumni doesn't include heads of state.", "gold": "REFUTES", "pred": "REFUTES", "raw_pred": "REFUTES", "confidence": 0.9}
+{"id": "fever-124663", "claim": "Grease possessed a musical soundtrack.", "gold": "SUPPORTS", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.9}
+{"id": "fever-215140", "claim": "Private Lives is only a horror movie made by a Bollywood director.", "gold": "REFUTES", "pred": "REFUTES", "raw_pred": "REFUTES", "confidence": 0.9}
+{"id": "fever-152021", "claim": "Penguin Books had zero impact on publishing in the 1930s.", "gold": "REFUTES", "pred": "REFUTES", "raw_pred": "REFUTES", "confidence": 0.95}
+{"id": "fever-202040", "claim": "Tamerlan Tsarnaev had a sister.", "gold": "NOT_ENOUGH_INFO", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.9}
+{"id": "fever-58968", "claim": "Kenny Chesney is Australian.", "gold": "REFUTES", "pred": "REFUTES", "raw_pred": "REFUTES", "confidence": 0.95}
+{"id": "fever-133510", "claim": "Benjamin Franklin was a murderer.", "gold": "NOT_ENOUGH_INFO", "pred": "REFUTES", "raw_pred": "REFUTES", "confidence": 0.9}
+{"id": "fever-58896", "claim": "Omar Khadr was detained at Guantanamo Bay.", "gold": "SUPPORTS", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.9}
+{"id": "fever-121916", "claim": "Jamie Murray is a Davis Cup maker.", "gold": "NOT_ENOUGH_INFO", "pred": "REFUTES", "raw_pred": "REFUTES", "confidence": 0.9}
+{"id": "fever-117003", "claim": "David Attenborough did not serve as controller of BBC Two.", "gold": "REFUTES", "pred": "REFUTES", "raw_pred": "REFUTES", "confidence": 0.9}
+{"id": "fever-16250", "claim": "On Nickelodeon SpongeBob SquarePants is the highest rated series to ever air.", "gold": "SUPPORTS", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.85}
+{"id": "fever-5578", "claim": "Australia (2008 film) production took place in Kununurra.", "gold": "SUPPORTS", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.9}
+{"id": "fever-25829", "claim": "Manchester by the Sea has grossed money.", "gold": "SUPPORTS", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.9}
+{"id": "fever-133445", "claim": "Shane Black was born in the first month of winter.", "gold": "NOT_ENOUGH_INFO", "pred": "REFUTES", "raw_pred": "REFUTES", "confidence": 0.9}
+{"id": "fever-102214", "claim": "South Island is sometimes referred to as the \"mainland\" of New Zealand and it is a cultured place.", "gold": "NOT_ENOUGH_INFO", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.8}
+{"id": "fever-173505", "claim": "Sancho Panza is a character in a novel written by an author.", "gold": "SUPPORTS", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.9}
+{"id": "fever-205109", "claim": "Gaius Julius Caesar was the uncle of a dictator.", "gold": "NOT_ENOUGH_INFO", "pred": "REFUTES", "raw_pred": "REFUTES", "confidence": 0.9}
+{"id": "fever-185394", "claim": "CHiPs is based on a TV series series written by Rick Rosner.", "gold": "NOT_ENOUGH_INFO", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.9}
+{"id": "fever-2198", "claim": "Key & Peele has won two Academy Awards.", "gold": "NOT_ENOUGH_INFO", "pred": "REFUTES", "raw_pred": "REFUTES", "confidence": 0.9}
+{"id": "fever-77175", "claim": "Josh Hutcherson was in two different television shows within two years.", "gold": "NOT_ENOUGH_INFO", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.8}
+{"id": "fever-20115", "claim": "Simon Cowell burns down charities.", "gold": "NOT_ENOUGH_INFO", "pred": "REFUTES", "raw_pred": "REFUTES", "confidence": 0.95}
+{"id": "fever-89471", "claim": "Personality is affected by the development of thoughts.", "gold": "NOT_ENOUGH_INFO", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.85}
+{"id": "fever-131520", "claim": "The Dodo has been depicted with a very hairy head.", "gold": "REFUTES", "pred": "REFUTES", "raw_pred": "REFUTES", "confidence": 0.9}
+{"id": "fever-212309", "claim": "Mary-Kate Olsen and Ashley Olsen are also known as the Olsen twins.", "gold": "SUPPORTS", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.9}
+{"id": "fever-89493", "claim": "Touchscreens are used in Japan.", "gold": "NOT_ENOUGH_INFO", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.9}
+{"id": "fever-204010", "claim": "Glee.com was first launched in March of 2008.", "gold": "REFUTES", "pred": "REFUTES", "raw_pred": "REFUTES", "confidence": 0.9}
+{"id": "fever-226859", "claim": "Jenna Jameson only worked as a professional actress.", "gold": "NOT_ENOUGH_INFO", "pred": "REFUTES", "raw_pred": "REFUTES", "confidence": 0.95}
+{"id": "fever-85350", "claim": "Andrew Kevin Walker was born on Monday August 14, 1964.", "gold": "SUPPORTS", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.9}
+{"id": "fever-56284", "claim": "Chest sensation is one symptom of pulmonary embolism.", "gold": "SUPPORTS", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.9}
+{"id": "fever-46873", "claim": "Joni Mitchell released her final album in 2007.", "gold": "NOT_ENOUGH_INFO", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.9}
+{"id": "fever-36815", "claim": "Oscar Isaac played a fictional character.", "gold": "SUPPORTS", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.9}
+{"id": "fever-23634", "claim": "James VI and I was Spanish.", "gold": "REFUTES", "pred": "REFUTES", "raw_pred": "REFUTES", "confidence": 0.9}
+{"id": "fever-8550", "claim": "The Mirny (sloop-of-war) was commanded by a person.", "gold": "SUPPORTS", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.9}
+{"id": "fever-163978", "claim": "Veeram is an award-winning Indian Tamil film.", "gold": "NOT_ENOUGH_INFO", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.85}
+{"id": "fever-173919", "claim": "An Education was created by a writer Lynn Barber.", "gold": "REFUTES", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.9}
+{"id": "fever-202747", "claim": "The Chaperone (film) is a comedy television show only.", "gold": "REFUTES", "pred": "REFUTES", "raw_pred": "REFUTES", "confidence": 0.9}
+{"id": "fever-86738", "claim": "Deepika Padukone has only played minor roles.", "gold": "REFUTES", "pred": "REFUTES", "raw_pred": "REFUTES", "confidence": 0.9}
+{"id": "fever-197633", "claim": "The University of Leicester invented genetic fingerprinting.", "gold": "SUPPORTS", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.9}
+{"id": "fever-221087", "claim": "A&E is a German channel.", "gold": "REFUTES", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.85}
+{"id": "fever-47598", "claim": "Sledgehammer was performed live.", "gold": "SUPPORTS", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.85}
+{"id": "fever-115173", "claim": "Wildfang was established in Portland, Oregon.", "gold": "SUPPORTS", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.9}
+{"id": "fever-194581", "claim": "Kyle Maclachlan has won a Golden Globe for Best Director.", "gold": "NOT_ENOUGH_INFO", "pred": "REFUTES", "raw_pred": "REFUTES", "confidence": 0.9}
+{"id": "fever-22480", "claim": "EA Black Box was based outside of Canada.", "gold": "REFUTES", "pred": "REFUTES", "raw_pred": "REFUTES", "confidence": 0.9}
+{"id": "fever-37112", "claim": "TakePart is the digital division of Participant Media.", "gold": "SUPPORTS", "pred": "SUPPORTS", "raw_pred": "SUPPORTS", "confidence": 0.85}

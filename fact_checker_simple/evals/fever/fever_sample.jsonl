@@ -1,0 +1,300 @@
+{"id": "fever-167448", "claim": "Cadet Kelly failed to be released.", "expected_verdict": "REFUTES"}
+{"id": "fever-125869", "claim": "Ann Richards was an actor.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-8781", "claim": "Byron Howard was nominated for a film award.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-204647", "claim": "Rio's sequel was released on April 11, 2012.", "expected_verdict": "REFUTES"}
+{"id": "fever-149697", "claim": "John DiMaggio did a voice-over role in a series created by Alex Hirsch.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-72358", "claim": "Ripon College is in hell.", "expected_verdict": "REFUTES"}
+{"id": "fever-171638", "claim": "Dave Gibbons is a writer.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-14069", "claim": "Qui-Gon Jinn is a fictional Star Wars character.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-158901", "claim": "Unison (Celine Dion album) was originally released by Warner Music Group.", "expected_verdict": "REFUTES"}
+{"id": "fever-61504", "claim": "Yale University's alumni doesn't include heads of state.", "expected_verdict": "REFUTES"}
+{"id": "fever-124663", "claim": "Grease possessed a musical soundtrack.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-215140", "claim": "Private Lives is only a horror movie made by a Bollywood director.", "expected_verdict": "REFUTES"}
+{"id": "fever-152021", "claim": "Penguin Books had zero impact on publishing in the 1930s.", "expected_verdict": "REFUTES"}
+{"id": "fever-202040", "claim": "Tamerlan Tsarnaev had a sister.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-58968", "claim": "Kenny Chesney is Australian.", "expected_verdict": "REFUTES"}
+{"id": "fever-133510", "claim": "Benjamin Franklin was a murderer.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-58896", "claim": "Omar Khadr was detained at Guantanamo Bay.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-121916", "claim": "Jamie Murray is a Davis Cup maker.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-117003", "claim": "David Attenborough did not serve as controller of BBC Two.", "expected_verdict": "REFUTES"}
+{"id": "fever-16250", "claim": "On Nickelodeon SpongeBob SquarePants is the highest rated series to ever air.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-5578", "claim": "Australia (2008 film) production took place in Kununurra.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-25829", "claim": "Manchester by the Sea has grossed money.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-133445", "claim": "Shane Black was born in the first month of winter.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-102214", "claim": "South Island is sometimes referred to as the \"mainland\" of New Zealand and it is a cultured place.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-173505", "claim": "Sancho Panza is a character in a novel written by an author.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-205109", "claim": "Gaius Julius Caesar was the uncle of a dictator.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-185394", "claim": "CHiPs is based on a TV series series written by Rick Rosner.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-2198", "claim": "Key & Peele has won two Academy Awards.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-77175", "claim": "Josh Hutcherson was in two different television shows within two years.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-20115", "claim": "Simon Cowell burns down charities.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-89471", "claim": "Personality is affected by the development of thoughts.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-131520", "claim": "The Dodo has been depicted with a very hairy head.", "expected_verdict": "REFUTES"}
+{"id": "fever-212309", "claim": "Mary-Kate Olsen and Ashley Olsen are also known as the Olsen twins.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-89493", "claim": "Touchscreens are used in Japan.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-204010", "claim": "Glee.com was first launched in March of 2008.", "expected_verdict": "REFUTES"}
+{"id": "fever-226859", "claim": "Jenna Jameson only worked as a professional actress.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-85350", "claim": "Andrew Kevin Walker was born on Monday August 14, 1964.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-56284", "claim": "Chest sensation is one symptom of pulmonary embolism.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-46873", "claim": "Joni Mitchell released her final album in 2007.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-36815", "claim": "Oscar Isaac played a fictional character.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-23634", "claim": "James VI and I was Spanish.", "expected_verdict": "REFUTES"}
+{"id": "fever-8550", "claim": "The Mirny (sloop-of-war) was commanded by a person.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-163978", "claim": "Veeram is an award-winning Indian Tamil film.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-173919", "claim": "An Education was created by a writer Lynn Barber.", "expected_verdict": "REFUTES"}
+{"id": "fever-37112", "claim": "TakePart is the digital division of Participant Media.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-149990", "claim": "Janelle Monáe's full name is Janelle Monáe Sokolowski.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-74035", "claim": "The English Wikipedia is the English-language edition of a free online encyclopedia.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-120277", "claim": "Alexandra Daddario was born in the nineties.", "expected_verdict": "REFUTES"}
+{"id": "fever-23230", "claim": "University of Chicago Law School is ranked fourth by Brain Leiter on the \"Top 15 Schools From Which the Most `Prestigious' Law Firms Hire New Lawyers.\"", "expected_verdict": "REFUTES"}
+{"id": "fever-200262", "claim": "Quentin Tarantino's original screenplay was the basis for the film Natural Born Killers.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-223690", "claim": "UNICEF UK is also known as the company Committee for UNICEF.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-153303", "claim": "EA Black Box was a picture game developer.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-66493", "claim": "Wish Upon was eaten by John R. Leonetti.", "expected_verdict": "REFUTES"}
+{"id": "fever-208417", "claim": "Excuse My French is a song.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-21270", "claim": "Yugoslavia failed to exist during most of the 20th century.", "expected_verdict": "REFUTES"}
+{"id": "fever-177835", "claim": "Milk is based on the life of John McCain.", "expected_verdict": "REFUTES"}
+{"id": "fever-79921", "claim": "Exotic Birds opened in America.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-205105", "claim": "Gaius Julius Caesar died in May of 85 BC.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-171905", "claim": "Research is funded privately or federally.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-49405", "claim": "Temple Mount is related to Judaism.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-173510", "claim": "Sancho Panza is a character in Estonia.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-107364", "claim": "Night of the Living Dead is a 1990 cinematic work from the United States.", "expected_verdict": "REFUTES"}
+{"id": "fever-135336", "claim": "Quay premiered at a commercial movie theater.", "expected_verdict": "REFUTES"}
+{"id": "fever-104426", "claim": "Scandal is fronted by Patty Smyth.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-74427", "claim": "The 1990s is the time period Menace II Society takes place in.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-7026", "claim": "Uranium uses the symbol M.", "expected_verdict": "REFUTES"}
+{"id": "fever-161021", "claim": "No Strings Attached was released in the Philippines.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-150829", "claim": "Estonia borders the line.", "expected_verdict": "REFUTES"}
+{"id": "fever-219172", "claim": "Species distribution can be understood through factors such as continental drift and extinction.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-143429", "claim": "Mike Huckabee is a Republican.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-79208", "claim": "Arizona is not a part of the United States.", "expected_verdict": "REFUTES"}
+{"id": "fever-192896", "claim": "\"Love the Way You Lie\" received five Grammy nominations.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-83758", "claim": "Soul Food was released by DreamWorks Animation.", "expected_verdict": "REFUTES"}
+{"id": "fever-173129", "claim": "Anne Sullivan was born in 1866.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-86593", "claim": "In the End has guitar in it.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-124862", "claim": "How to Train Your Dragon 2 used old animation software.", "expected_verdict": "REFUTES"}
+{"id": "fever-117199", "claim": "The Battle of the Trebia took place south of the Trebbia's confluence with the Po river in the province of Piacenza.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-188889", "claim": "Numenius lived in the 2nd century AD.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-194734", "claim": "L. Ron Hubbard spent the last years of his life on his ranch.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-121645", "claim": "Billboard Dad stars Ashley and Mary-Kate Olsen.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-74475", "claim": "Quay had its first public showing in Manhattan.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-36468", "claim": "Danger UXB was written during the Second World War.", "expected_verdict": "REFUTES"}
+{"id": "fever-194020", "claim": "Kim Jong-il works for the Eternal General Secretary.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-89461", "claim": "Gin is popular.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-26155", "claim": "Sleipnir is a fish.", "expected_verdict": "REFUTES"}
+{"id": "fever-1076", "claim": "James Jones missed the finals once.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-191647", "claim": "Ang Lee was born October 23, 1954.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-51247", "claim": "SummerSlam closed in Brooklyn.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-90458", "claim": "Hermit crabs belong to the superfamily the Incredibles.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-91823", "claim": "Gravel is part of the History of Earth.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-143287", "claim": "Jewell worked with other artists.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-218471", "claim": "The Hanford Site contributes to the LIGO Hanford Observatory.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-77815", "claim": "Scotty Moore was only a singer.", "expected_verdict": "REFUTES"}
+{"id": "fever-134070", "claim": "Charles de Gaulle was an enemy of the  French Resistance.", "expected_verdict": "REFUTES"}
+{"id": "fever-148173", "claim": "The Mormon population has been growing rapidly due to high death and conversion rates.", "expected_verdict": "REFUTES"}
+{"id": "fever-26687", "claim": "The Stanford prison experiment was an examination of the causes of troubles between guards and prisoners.", "expected_verdict": "REFUTES"}
+{"id": "fever-123445", "claim": "Daggering is popular.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-108203", "claim": "Private sexual oppression is a reason for human trafficking.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-44075", "claim": "Creatures with backbones have ovaries.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-16025", "claim": "Duane Chapman's full name is not Duane Lee \"Dog\" Chapman I.", "expected_verdict": "REFUTES"}
+{"id": "fever-177850", "claim": "Milk is based on the life of a person that was solely a farmer.", "expected_verdict": "REFUTES"}
+{"id": "fever-106851", "claim": "Wales' population rapidly expanded because of the South Wales Coalfield's exploitation.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-97886", "claim": "Penguin Books is a whore house.", "expected_verdict": "REFUTES"}
+{"id": "fever-529", "claim": "Musala is 2,525 meters.", "expected_verdict": "REFUTES"}
+{"id": "fever-55732", "claim": "A near-Earth object is abbreviated as NEO.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-165666", "claim": "Tom Baker is from Georgia.", "expected_verdict": "REFUTES"}
+{"id": "fever-61771", "claim": "Battle of the Bastards is a television episode.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-157131", "claim": "Scream incorporates acting by only five actors.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-161570", "claim": "Baz Luhrmann's film Australia is an epic historical romantic drama from 2001.", "expected_verdict": "REFUTES"}
+{"id": "fever-130747", "claim": "Salman Rushdie published a novel in Scotland.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-24298", "claim": "Sabbir Khan directed a film starring Indian actress Dolly Parton.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-144725", "claim": "Yemen is the fourth-largest country in the Arabian peninsula.", "expected_verdict": "REFUTES"}
+{"id": "fever-104650", "claim": "Sleipnir is an animal.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-90455", "claim": "Nero's death sparked a brief period of world wars.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-49113", "claim": "Henri Kontinen's brother is an active tennis player.", "expected_verdict": "REFUTES"}
+{"id": "fever-187778", "claim": "The Sterile Cuckoo was adapted from a novel written by an American father.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-89789", "claim": "L.A. Reid hasn't been a chairman.", "expected_verdict": "REFUTES"}
+{"id": "fever-122250", "claim": "Paul Nicholls is a carpenter.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-190081", "claim": "Terrence Howard reprised the role of James Rhodes in the video game adaptation.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-167977", "claim": "Don Bradman was called the \"greatest living Australian\" by a President.", "expected_verdict": "REFUTES"}
+{"id": "fever-133748", "claim": "The Bassoon King has a subtitle.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-62419", "claim": "The Punisher has a protagonist.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-132818", "claim": "Pharrell Williams makes drums.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-188647", "claim": "Foot Locker's headquarters are in Boston, Massachusetts.", "expected_verdict": "REFUTES"}
+{"id": "fever-55157", "claim": "Ekta Kapoor worked on an Indian soap opera that was canceled before airing.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-180578", "claim": "Swordfish (film) is a film that is about a type of person.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-27564", "claim": "The Dark Tower has remained unadapted to film.", "expected_verdict": "REFUTES"}
+{"id": "fever-92410", "claim": "Shape of You was on the constitutions of the UK, Australia, and Canada.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-57085", "claim": "Legendary Entertainment is the owner of Wanda Cinemas.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-32255", "claim": "Dilwale Dulhania Le Jayenge was shot in different locations.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-107554", "claim": "Five major windstorms have hit Stanley Park in the past 100 years.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-80289", "claim": "The Cyclades are in a Sea.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-79644", "claim": "Anthony Scaramucci is not an entrepreneur.", "expected_verdict": "REFUTES"}
+{"id": "fever-108325", "claim": "Meghan Markle is an actress.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-86568", "claim": "In the End was the only song written by Linkin Park.", "expected_verdict": "REFUTES"}
+{"id": "fever-46059", "claim": "An exampled of a folk hero was Bhagat Singh.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-154630", "claim": "James Earl Jones was a viewer of The Lion King.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-86914", "claim": "Gin is a berry flavoured spirit.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-177478", "claim": "Pythagoras was a Greek philosopher.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-100757", "claim": "Janet Leigh sang \"I'm Not Sorry.\"", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-119281", "claim": "Joe Walsh was inducted in a speedy manner.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-202747", "claim": "The Chaperone (film) is a comedy television show only.", "expected_verdict": "REFUTES"}
+{"id": "fever-6650", "claim": "The Icelandic Coast Guard is responsible for something.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-215276", "claim": "PBS is exclusively a film distributor.", "expected_verdict": "REFUTES"}
+{"id": "fever-26839", "claim": "Hedda Gabler's world premiere took place at the Battle of Hastings.", "expected_verdict": "REFUTES"}
+{"id": "fever-111474", "claim": "Nate Diaz competed in New York.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-35833", "claim": "There is a musician name Johnny Van Zant.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-7287", "claim": "The Beverly Hillbillies had a number of episodes that remain the most-watched.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-159936", "claim": "Christa McAuliffe was a teacher at Concord High School.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-86738", "claim": "Deepika Padukone has only played minor roles.", "expected_verdict": "REFUTES"}
+{"id": "fever-165890", "claim": "Alice Cooper was born on February 4th, 1948.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-142717", "claim": "A person who was born in August discovered Uranium-235.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-188141", "claim": "Stephen Moyer acted in a film adaptation of a the Prince Valiant comic.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-208420", "claim": "Excuse My French is a speech by French Montana.", "expected_verdict": "REFUTES"}
+{"id": "fever-120077", "claim": "The SpongeBob SquarePants Movie was directed by Donald Trump.", "expected_verdict": "REFUTES"}
+{"id": "fever-86095", "claim": "Woodrow Wilson did not live during World War I.", "expected_verdict": "REFUTES"}
+{"id": "fever-209089", "claim": "Stadium Arcadium featured Ryan Ross.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-180726", "claim": "Victoria (Dance Exponents song) reached number 8 on the New Zealand singles chart.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-157794", "claim": "Justine Bateman is in the arts.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-30259", "claim": "Life is only applicable to inanimate objects.", "expected_verdict": "REFUTES"}
+{"id": "fever-174604", "claim": "Artpop had first-week sales of about 500,000 copies.", "expected_verdict": "REFUTES"}
+{"id": "fever-47847", "claim": "Jack Dylan Grazer was born in Los Angeles, California.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-154989", "claim": "Poldark has three series.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-27584", "claim": "Annie Lennox was named one of \"The 100 Greatest Dancers of All Time.\"", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-166940", "claim": "Baadshah had at least one language dubbed over it.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-47525", "claim": "King Edward the First's occupation of north Scotland was opposed by Andrew Moray.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-91976", "claim": "Bank of America withholds products and services.", "expected_verdict": "REFUTES"}
+{"id": "fever-49729", "claim": "The Good Wife is broadcast on a television network.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-122288", "claim": "Stomp the Yard stars an American actress born in August 1981.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-123094", "claim": "The Bengal tiger has a coat.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-222171", "claim": "Rehab was awarded Best Contemporary Song in 2011.", "expected_verdict": "REFUTES"}
+{"id": "fever-77277", "claim": "Victor Frankenstein is only a Spanish film from 2014.", "expected_verdict": "REFUTES"}
+{"id": "fever-199763", "claim": "Tijuana is located 30 miles outside of the Tijuana metropolitan area.", "expected_verdict": "REFUTES"}
+{"id": "fever-72647", "claim": "The Burj Khalifa is a tall building with 163 floors.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-187785", "claim": "The Sterile Cuckoo was adapted from a commercial.", "expected_verdict": "REFUTES"}
+{"id": "fever-143803", "claim": "Diana, Princess of Wales became known as Lady Diana Thatcher.", "expected_verdict": "REFUTES"}
+{"id": "fever-197389", "claim": "Simón Bolívar was from Venezuela.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-141189", "claim": "Tenacious D ended in 1987.", "expected_verdict": "REFUTES"}
+{"id": "fever-182936", "claim": "The soundtrack of Far from the Madding Crowd was only by a French composer.", "expected_verdict": "REFUTES"}
+{"id": "fever-195241", "claim": "Kevin Bacon is only in films directed by Quentin Tarantino.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-134349", "claim": "Sam Claflin is a person.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-29848", "claim": "Watertown, Massachusetts is in the United States.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-145516", "claim": "Magic Johnson owned the Lakers.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-155531", "claim": "Elizabeth I's mother was 6 feet tall.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-47357", "claim": "Margaret Thatcher implemented policies.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-45336", "claim": "Yves Saint Laurent closed in 1961.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-41683", "claim": "Tiber Oil Field is a deepwater offshore oil canyon.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-151247", "claim": "The Adventures of Pluto Nash was released in 2005.", "expected_verdict": "REFUTES"}
+{"id": "fever-192790", "claim": "A staging area is a location.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-166931", "claim": "Baadshah was dubbed into Malayalam in 2002.", "expected_verdict": "REFUTES"}
+{"id": "fever-88041", "claim": "Scaramouche is a rival of Scaramuccia.", "expected_verdict": "REFUTES"}
+{"id": "fever-133434", "claim": "In America, Warcraft was released by a distribution company.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-192974", "claim": "Roland Emmerich is a collector.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-48607", "claim": "Pakistan's economy is 42nd largest in nominal gross domestic product.", "expected_verdict": "REFUTES"}
+{"id": "fever-206452", "claim": "Uta Hagan is an American farmer.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-116870", "claim": "A River Runs Through It has been nominated for an Oscar.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-203156", "claim": "Polynesian languages include Tahitian.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-78925", "claim": "The Nice Guys was released in 2010.", "expected_verdict": "REFUTES"}
+{"id": "fever-186331", "claim": "The Hunchback of Notre Dame kills Quasimodo.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-120297", "claim": "Dev Patel has not worked with John Madden.", "expected_verdict": "REFUTES"}
+{"id": "fever-33334", "claim": "Vatican City was brought into being by the Lateran Treaty.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-75307", "claim": "Jamie Lee Curtis only starred in Rob Zombie's Halloween.", "expected_verdict": "REFUTES"}
+{"id": "fever-185397", "claim": "CHiPs was created in a box.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-197633", "claim": "The University of Leicester invented genetic fingerprinting.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-221087", "claim": "A&E is a German channel.", "expected_verdict": "REFUTES"}
+{"id": "fever-47598", "claim": "Sledgehammer was performed live.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-115173", "claim": "Wildfang was established in Portland, Oregon.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-194581", "claim": "Kyle Maclachlan has won a Golden Globe for Best Director.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-22480", "claim": "EA Black Box was based outside of Canada.", "expected_verdict": "REFUTES"}
+{"id": "fever-195147", "claim": "Backing vocalists cannot ever sing.", "expected_verdict": "REFUTES"}
+{"id": "fever-194456", "claim": "Tilda Swinton is an actress.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-134384", "claim": "A player-coach may be a head coach or an assistant coach.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-33277", "claim": "Sandra Bullock was fired by ABC.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-5738", "claim": "Melancholia was directed by a Japanese sushi chef.", "expected_verdict": "REFUTES"}
+{"id": "fever-46508", "claim": "Angelsberg is not a town.", "expected_verdict": "REFUTES"}
+{"id": "fever-23306", "claim": "Luke Cage was part of a cult.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-209103", "claim": "Sennacherib's youngest daughter was Esarhaddon.", "expected_verdict": "REFUTES"}
+{"id": "fever-88910", "claim": "The Beguiled is based on a novel from 1987.", "expected_verdict": "REFUTES"}
+{"id": "fever-80478", "claim": "Life applies only to physical entities with integrity.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-222759", "claim": "Practical Magic is solely a Canadian romantic comedy film.", "expected_verdict": "REFUTES"}
+{"id": "fever-11539", "claim": "Mutiny on the Bounty is a film.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-12520", "claim": "Bryan Howard died before the first ever Golden Globe ceremony.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-26524", "claim": "Harvard University is a thousand square feet.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-116668", "claim": "A Milli is a song by Lil Wayne.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-171643", "claim": "Dave Gibbons has always been unable to make art.", "expected_verdict": "REFUTES"}
+{"id": "fever-58534", "claim": "The United Nations Charter was drafted in June of 1945.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-115976", "claim": "Raja Hindustani was directed by 5 directors each from a different region of India.", "expected_verdict": "REFUTES"}
+{"id": "fever-206022", "claim": "The Office (US) ran for nine seasons.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-116095", "claim": "Jed Whedon is an American icon.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-80693", "claim": "Stan Beeman is the main character.", "expected_verdict": "REFUTES"}
+{"id": "fever-55975", "claim": "Derek Hough starred in an American film.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-80338", "claim": "David Packouz refused to ever be an arms dealer.", "expected_verdict": "REFUTES"}
+{"id": "fever-41265", "claim": "Carlos Santana is a musician.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-93957", "claim": "San Francisco is where Blue Jasmine took place.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-188642", "claim": "Foot Locker operates in 28 cities worldwide.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-122692", "claim": "The Residenztheater is where Hedda Gabler's world premiere took place.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-91843", "claim": "Dulquer Salmaan refused to ever act in a Malayalam-language film.", "expected_verdict": "REFUTES"}
+{"id": "fever-91788", "claim": "Duff McKagan is Japanese.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-97036", "claim": "Keith Stanfield is from America.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-183626", "claim": "Finding Dory was directed by an American and it is a film.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-68611", "claim": "No Country for Old Men is about a diverse cast set in the desert of 1980 West Texas.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-132834", "claim": "Gamal Abdel Nasser's business was in the capital of Egypt.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-72918", "claim": "Julie Bowen refused to ever become an actress.", "expected_verdict": "REFUTES"}
+{"id": "fever-119253", "claim": "Robert Palmer (writer) has yet to write anything.", "expected_verdict": "REFUTES"}
+{"id": "fever-134422", "claim": "Honeymoon is Lana Del Rey's fourth restaurant.", "expected_verdict": "REFUTES"}
+{"id": "fever-40859", "claim": "Temple Grandin features Claire Danes playing an autistic woman who changed practices for the handling of livestock.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-26499", "claim": "The Gifted was created by the dark lord.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-31905", "claim": "Lost lasted from September 22, 2004 to May 23, 2010.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-201757", "claim": "North Vietnam was officially called the Democratic Republic of Congo.", "expected_verdict": "REFUTES"}
+{"id": "fever-66473", "claim": "Watchmen is a film set in an alternate history in the year 1985.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-91798", "claim": "In 2015, among Americans, 44% of adults had consumed alcoholic drink in the last month.", "expected_verdict": "REFUTES"}
+{"id": "fever-201114", "claim": "Marcus Bentley is incapable of being a voice-over artist.", "expected_verdict": "REFUTES"}
+{"id": "fever-140337", "claim": "Brown University's main campus is located in the College Hill Historic District of Boston.", "expected_verdict": "REFUTES"}
+{"id": "fever-158903", "claim": "Unison (Celine Dion album) was originally released by Columbia Records.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-67425", "claim": "The Greek language is spoken in Nicosia.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-137788", "claim": "Luke Cage is not a superhero.", "expected_verdict": "REFUTES"}
+{"id": "fever-65158", "claim": "DodgeBall: A True Underdog Story is a graphic novel.", "expected_verdict": "REFUTES"}
+{"id": "fever-157602", "claim": "John DiMaggio has had roles on eighteen shows from Cartoon Network.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-186591", "claim": "Asylum Records is a record label founded in 1971.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-223283", "claim": "The Baja 1000 had Jeff Gordon as a participant.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-63669", "claim": "Global warming threatens traveling from the increase in floods.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-62898", "claim": "In the End does not have piano in it.", "expected_verdict": "REFUTES"}
+{"id": "fever-187780", "claim": "The Sterile Cuckoo was Alan J. Pakula's directorial debut.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-204650", "claim": "Rio's sequel is only called Tiny Mike.", "expected_verdict": "REFUTES"}
+{"id": "fever-165116", "claim": "Mickey Rourke appeared in the 2011 film Immortals when he was 57 years old.", "expected_verdict": "REFUTES"}
+{"id": "fever-28324", "claim": "Muscarinic acetylcholine receptors are actylcholine receptors.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-102303", "claim": "Bank of America has online and computer banking platforms.", "expected_verdict": "REFUTES"}
+{"id": "fever-40643", "claim": "Tangled was first shown in theaters in 2010.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-133233", "claim": "Touch My Body was released in 2008.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-140846", "claim": "Shooter is about an expert marksman who tries to stop the assassination of the president.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-17031", "claim": "Reign Over Me was written and directed by Mike Binder in 2001.", "expected_verdict": "REFUTES"}
+{"id": "fever-173609", "claim": "After its revival in 2009 Hair (musical) won a Tony.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-162427", "claim": "The Suite Life of Zack & Cody was created by John Wayne.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-153118", "claim": "Edward Cullen is exclusively in books.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-27457", "claim": "Kelly Preston starred in the film Old Dogs.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-201086", "claim": "Regina King has received zero Critics' Choice Television nomination.", "expected_verdict": "REFUTES"}
+{"id": "fever-82293", "claim": "Penélope Cruz has done modeling for Mango.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-93610", "claim": "Britt Robertson is an entertainer.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-125095", "claim": "Raven-Symoné appears in Deadwood.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-52559", "claim": "The genre of Colombiana is action.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-58861", "claim": "Oscar Isaac acted as the superhero Apocalypse.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-153086", "claim": "Macklemore plays chess with Ryan Lewis.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-64906", "claim": "Paul Nicholls played Superman.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-203054", "claim": "Akon is an entertainer.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-212231", "claim": "Gory Guerrero was a Nacho Libre wrestler.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-151767", "claim": "Advertising is utilized to vend a service.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-53669", "claim": "Guns N' Roses is an American hard rock restaurant.", "expected_verdict": "REFUTES"}
+{"id": "fever-92419", "claim": "National pain is one symptom of pulmonary embolism.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-41745", "claim": "Luke Cage became a \"hero for fire.\"", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-124959", "claim": "Jarhead is based upon a memoir.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-217104", "claim": "Innovation is often also viewed as the application of better solutions that meet new people.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-203618", "claim": "The 1974 crime film The Sugarland Express was scored by Steven Spielberg.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-228586", "claim": "Telephone contains a sampled voice of an operator.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-122000", "claim": "Danger UXB is a TV show.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-148979", "claim": "A polynomial consists of only coefficients.", "expected_verdict": "REFUTES"}
+{"id": "fever-80075", "claim": "The Columbia River undergoes drainage.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-194228", "claim": "Mike Friedrich is a squid.", "expected_verdict": "REFUTES"}
+{"id": "fever-5743", "claim": "Louie (season 1) is an award-winning TV series.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "fever-110221", "claim": "Knowledge and research in multiple fields is incorporated with Speech recognition.", "expected_verdict": "SUPPORTS"}
+{"id": "fever-207384", "claim": "Being sentenced to federal prison is something that happened to Efraim Diveroli.", "expected_verdict": "SUPPORTS"}

@@ -1,0 +1,12 @@
+{"id": "t01", "claim": "The Eiffel Tower is located in Paris, France.", "expected_verdict": "SUPPORTS"}
+{"id": "t02", "claim": "Mount Everest is the highest mountain above sea level on Earth.", "expected_verdict": "SUPPORTS"}
+{"id": "t03", "claim": "The 2024 Summer Olympic Games were held in Paris, France.", "expected_verdict": "SUPPORTS"}
+{"id": "t04", "claim": "Water is composed of hydrogen and oxygen atoms.", "expected_verdict": "SUPPORTS"}
+{"id": "t05", "claim": "The Great Wall of China is located in China.", "expected_verdict": "SUPPORTS"}
+{"id": "f01", "claim": "Humans use only 10 percent of their brains.", "expected_verdict": "REFUTES"}
+{"id": "f02", "claim": "The Earth is the largest planet in the Solar System.", "expected_verdict": "REFUTES"}
+{"id": "f03", "claim": "Mount Everest is located on the continent of Africa.", "expected_verdict": "REFUTES"}
+{"id": "f04", "claim": "The Sun revolves around the Earth once per day.", "expected_verdict": "REFUTES"}
+{"id": "f05", "claim": "The Great Wall of China is the only man-made object visible from the Moon with the naked eye.", "expected_verdict": "REFUTES"}
+{"id": "u01", "claim": "A startup named Qwbblex Dynamics raised 4.2 billion dollars in March 2025.", "expected_verdict": "NOT_ENOUGH_INFO"}
+{"id": "u02", "claim": "There are exactly 7,431 undiscovered species of blue beetle in the Amazon rainforest.", "expected_verdict": "NOT_ENOUGH_INFO"}

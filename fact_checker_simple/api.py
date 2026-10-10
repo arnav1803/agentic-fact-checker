@@ -27,13 +27,13 @@ from typing import Optional
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from bson import ObjectId
 
-from config import GROQ_MODEL
+from config import ALLOWED_ORIGINS, GROQ_MODEL
 from db import fact_checks_col, get_client
-from fact_checker import fact_check, fact_check_stream, fetch_article_text, _sha256
+from fact_checker import analyze, analyze_stream, fetch_article_text, input_hash
 
 # ── App ──────────────────────────────────────────────────────────────────────
 
@@ -43,23 +43,16 @@ app = FastAPI(
     version="2.0.0",
 )
 
-# Allow the local frontend dev servers to call the API (CORS)
-ALLOWED_ORIGINS = [
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-    "http://localhost:8081",
-    "http://127.0.0.1:8081",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5174",
-    "http://127.0.0.1:5174",
-]
+# Allow the local frontend dev server to call the API (CORS).
+# The regex also permits access from other devices on the same LAN (e.g. a
+# phone hitting http://192.168.x.x:8080) so the app works over the network.
+CORS_ORIGIN_REGEX = r"^http://(localhost|127\.0\.0\.1|(\d{1,3}\.){3}\d{1,3})(:\d+)?$"
 
 app.add_middleware(
     CORSMiddleware,
+    # Deployed frontends (e.g. https://my-app.vercel.app) are allowed via ALLOWED_ORIGINS.
     allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=CORS_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -160,6 +153,9 @@ def _doc_to_response(doc: dict) -> dict:
         "model": doc.get("model_used", GROQ_MODEL),
         "article_text": doc.get("article_text", ""),
         "created_at": _iso(doc.get("created_at", datetime.now(timezone.utc))),
+        "mode": doc.get("mode", "fact_check"),
+        "answer": doc.get("answer", ""),
+        "sources": doc.get("sources", []),
     }
 
 
@@ -184,7 +180,7 @@ def _resolve_article_text(req: FactCheckRequest) -> str:
 
 def _find_recent_duplicate(article_text: str) -> Optional[dict]:
     """Identical article checked within the dedup window? Return its doc."""
-    article_hash = _sha256(article_text)
+    article_hash = input_hash(article_text)
     cutoff = datetime.now(timezone.utc) - timedelta(hours=DEDUP_WINDOW_HOURS)
     return fact_checks_col().find_one(
         {"article_hash": article_hash, "created_at": {"$gte": cutoff}},
@@ -220,7 +216,7 @@ def run_fact_check(
     _check_rate_limit(request)
 
     try:
-        result = fact_check(article_text, max_claims=req.max_claims)
+        result = analyze(article_text, max_claims=req.max_claims)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Pipeline error: {str(e)}")
 
@@ -242,6 +238,9 @@ def run_fact_check(
         "model": GROQ_MODEL,
         "article_text": article_text.strip(),
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "mode": result.get("mode", "fact_check"),
+        "answer": result.get("answer", ""),
+        "sources": result.get("sources", []),
     }
 
 
@@ -253,6 +252,7 @@ def run_fact_check_streaming(
 ):
     """
     Run the pipeline and stream REAL progress as NDJSON (one JSON object per line):
+      {"event":"mode","mode":"fact_check"|"answer"}   (questions are answered, see analyze_stream)
       {"event":"step","step":"extract"}
       {"event":"claims","claims":[...]}
       {"event":"step","step":"search","current":1,"total":3,"claim":"..."}
@@ -274,7 +274,7 @@ def run_fact_check_streaming(
 
     def event_gen():
         try:
-            for event in fact_check_stream(article_text, max_claims=req.max_claims):
+            for event in analyze_stream(article_text, max_claims=req.max_claims):
                 if event.get("event") == "done":
                     result = event["result"]
                     _tag_owner(result["_id"], x_user_email)
@@ -310,7 +310,7 @@ def get_history(
 
     cursor = (
         fact_checks_col()
-        .find(query, {"_id": 1, "article_text": 1, "credibility_score": 1, "created_at": 1})
+        .find(query, {"_id": 1, "article_text": 1, "credibility_score": 1, "created_at": 1, "mode": 1})
         .sort("created_at", -1)
         .skip(offset)
         .limit(limit)
@@ -324,6 +324,7 @@ def get_history(
             "article_text": article[:200] if article else "",
             "credibility_score": doc.get("credibility_score", 0.5),
             "created_at": _iso(doc.get("created_at", "")),
+            "mode": doc.get("mode", "fact_check"),
         })
     return items
 
@@ -355,7 +356,9 @@ def delete_fact_check(fact_check_id: str):
 @app.get("/api/stats")
 def get_stats(x_user_email: Optional[str] = Header(default=None)):
     """Aggregate stats: total checks, average score, verdict distribution."""
-    match: dict = {}
+    # Answered questions have no credibility score, so only fact-checks count
+    # (older docs predate the mode field and are all fact-checks).
+    match: dict = {"mode": {"$ne": "answer"}}
     if x_user_email:
         match["user_id"] = x_user_email
 
@@ -388,6 +391,12 @@ def get_stats(x_user_email: Optional[str] = Header(default=None)):
         "average_credibility": avg_score,
         "verdict_distribution": verdict_counts,
     }
+
+
+@app.get("/", include_in_schema=False)
+def root():
+    """Send visitors of the bare API URL to the interactive docs."""
+    return RedirectResponse(url="/docs")
 
 
 @app.get("/api/health")

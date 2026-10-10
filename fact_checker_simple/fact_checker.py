@@ -7,6 +7,10 @@ Pipeline:
   3. Verify claims vs evidence    (LLM + prompt from MongoDB)
   4. Compute credibility score
   5. Persist full result to MongoDB
+
+Questions ("what happened at LPU this week?") skip claim extraction and are
+answered instead: plan searches -> search -> cited markdown answer. See
+analyze_stream for the routing.
 """
 
 import sys
@@ -21,8 +25,9 @@ from langchain_community.utilities import SerpAPIWrapper
 from langchain_community.tools.tavily_search import TavilySearchResults
 
 from config import (
-    GROQ_MODEL, GROQ_TEMPERATURE, GROQ_MAX_TOKENS,
-    SEARCH_NUM_RESULTS, SEARCH_CACHE_TTL_HOURS, SEARCH_DELAY_SECONDS, SERPAPI_API_KEY, TAVILY_API_KEY
+    GROQ_MODEL, GROQ_TEMPERATURE, GROQ_MAX_TOKENS, GROQ_REASONING_EFFORT,
+    SEARCH_NUM_RESULTS, SEARCH_CACHE_TTL_HOURS, ANSWER_CACHE_TTL_HOURS, SEARCH_DELAY_SECONDS,
+    SERPAPI_API_KEY, SERPAPI_API_KEYS, TAVILY_API_KEY
 )
 from db import fact_checks_col, search_cache_col
 from models import FactCheckResult, EvidenceItem, VerdictItem, SearchCacheDoc
@@ -35,6 +40,8 @@ llm = ChatGroq(
     model=GROQ_MODEL,
     temperature=GROQ_TEMPERATURE,
     max_tokens=GROQ_MAX_TOKENS,
+    # reasoning_effort is only valid for reasoning models such as gpt-oss
+    **({"reasoning_effort": GROQ_REASONING_EFFORT} if "gpt-oss" in GROQ_MODEL else {}),
 )
 
 import os
@@ -74,48 +81,190 @@ def _fetch_raw_html_or_msn(url: str, timeout: int = 12) -> str:
         headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
+        # Only read text/HTML pages. Image/video/PDF URLs (e.g. Google favicon
+        # thumbnails) would otherwise be decoded as garbage binary and fed to
+        # the LLM, corrupting its JSON output.
+        ctype = (resp.headers.get('Content-Type') or '').lower()
+        if ctype and not any(t in ctype for t in ('html', 'text', 'xml', 'json')):
+            return ""
         raw = resp.read()
         try:
             return raw.decode('utf-8')
         except UnicodeDecodeError:
             return raw.decode('latin-1', errors='ignore')
 
+
+def _sanitize_text(s: str) -> str:
+    """Drop control/non-printable characters that would corrupt an LLM prompt
+    or its JSON output (defense-in-depth against binary that slips through)."""
+    return re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', '', s)
+
+
+def _looks_binary(s: str) -> bool:
+    """True if the text is really binary data (an image, etc.) decoded as text.
+
+    Catches both control-char garbage AND high-Latin-1 garbage: a PNG decoded
+    as latin-1 becomes mostly bytes like 0xBC ('¼'), which are 'printable' but
+    make up a huge fraction of the content — far more than any real article."""
+    if not s:
+        return False
+    sample = s[:2000]
+    n = len(sample)
+    control = sum(1 for c in sample if ord(c) < 9 or (13 < ord(c) < 32) or ord(c) == 0xFFFD)
+    non_ascii = sum(1 for c in sample if ord(c) > 0x7F)
+    # Real text (even with ₹, é, —) is <~20% non-ASCII; image binary is far higher.
+    return (control / n > 0.02) or (non_ascii / n > 0.30)
+
+
+# Image-file signatures that must never reach the LLM, even from cached results
+_BINARY_SIGNATURES = ("IHDR", "IDAT", "PLTE", "sRGB", "pHYs", "IEND", "gAMA",
+                      "\x89PNG", "JFIF", "Exif")
+
+
+def _clean_evidence(text: str) -> str:
+    """Final guard before evidence reaches the LLM: drop binary/image blobs
+    (handles poisoned cache entries too), keep readable text."""
+    if not text:
+        return text
+    # If the whole blob is binary, drop it entirely
+    if _looks_binary(text):
+        return "[non-text content omitted]"
+    # Remove PNG/JPEG chunk-marker lines and long non-ASCII runs
+    if any(sig in text for sig in _BINARY_SIGNATURES):
+        text = re.sub(r'[^\x09\x0a\x0d\x20-\x7e -ſ‐-‧₠-₿]{6,}', ' ', text)
+    return _sanitize_text(text)
+
+
 def _scrape_url(url: str) -> str:
     """Open a search result link, download the page, strip HTML, return clean text."""
     try:
         html = _fetch_raw_html_or_msn(url, timeout=8)
+        if not html:
+            return ""
         # Strip scripts, styles, nav, footer, header tags
         for tag in ['script', 'style', 'nav', 'footer', 'header', 'aside']:
             html = re.sub(rf'<{tag}[^>]*>.*?</{tag}>', '', html, flags=re.DOTALL | re.IGNORECASE)
         # Strip all remaining HTML tags
         text = re.sub(r'<[^>]+>', ' ', html)
-        # Collapse whitespace
-        clean_text = ' '.join(text.split())
+        # Reject binary content that decoded into garbage (e.g. an image page)
+        if _looks_binary(text):
+            print(f"         [SKIP] {url[:60]}... looks like binary/non-text, skipping")
+            return ""
+        # Collapse whitespace and strip stray control characters
+        clean_text = _sanitize_text(' '.join(text.split()))
         # Return up to 2500 chars of clean content
         return clean_text[:2500]
     except Exception as e:
         print(f"         [SCRAPE FAIL] {url[:60]}... -> {e}")
         return ""
 
+# Search-engine / API hosts that appear inside raw results but are not real
+# sources (serpapi.com links even 401 without an API key), plus image /
+# favicon / thumbnail hosts that serve binary, not articles.
+_SKIP_HOSTS = ['serpapi.com', 'google.com/search', 'duckduckgo.com',
+               'bing.com', 'tavily.com', 'googleapis.com',
+               'gstatic.com', 'encrypted-tbn', 'googleusercontent.com',
+               'ggpht.com', 'ytimg.com', '/favicon', 'faviconv2',
+               # link shorteners and forms: never readable sources
+               'tinyurl.com', 'bit.ly', 'lnkd.in', 't.co/', 'goo.gl',
+               'forms.gle', 'docs.google.com/forms']
+_SKIP_EXTS = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.gifv', '.mp4',
+              '.webp', '.svg', '.ico', '.webm', '.avif', '.mp3', '.zip']
+
+
+def _source_urls(text: str) -> list[str]:
+    """Real source URLs found in raw search output, deduplicated in order."""
+    seen = set()
+    unique_urls = []
+    for u in re.findall(r'https?://[^\s,\'"\)\]]+', text):
+        u = u.rstrip('.,:;')  # strip trailing punctuation
+        lu = u.lower()
+        if (u not in seen
+                and not any(ext in lu for ext in _SKIP_EXTS)
+                and not any(host in lu for host in _SKIP_HOSTS)):
+            seen.add(u)
+            unique_urls.append(u)
+    return unique_urls
+
+
 class SearchTool:
     def __init__(self):
-        self.serp = SerpAPIWrapper(serpapi_api_key=SERPAPI_API_KEY) if SERPAPI_API_KEY else None
+        # One SerpAPI wrapper per configured key (primary first, then backups).
+        # When a key is exhausted we advance to the next automatically.
+        self.serps = [SerpAPIWrapper(serpapi_api_key=k) for k in SERPAPI_API_KEYS]
+        self._serp_idx = 0
         self.tavily = TavilySearchResults(max_results=SEARCH_NUM_RESULTS) if TAVILY_API_KEY else None
         try:
             from langchain_community.tools import DuckDuckGoSearchResults
             self.ddg = DuckDuckGoSearchResults(max_results=SEARCH_NUM_RESULTS)
         except Exception:
             self.ddg = None
-    
-    def invoke(self, query: str) -> str:
+
+    @staticmethod
+    def _is_exhausted(err: Exception) -> bool:
+        """True when a SerpAPI error means this key is out of searches / invalid,
+        so we should switch keys rather than give up on SerpAPI entirely."""
+        msg = str(err).lower()
+        return any(s in msg for s in (
+            "run out of searches", "ran out of searches", "429",
+            "401", "invalid api key", "unauthorized", "account", "plan"))
+
+    @staticmethod
+    def _serp_with_links(serp, query: str) -> str:
+        """SerpAPI results *with* titles and links. serp.run() returns bare
+        snippets, which leaves nothing to cite or open and read."""
+        res = serp.results(query)
+        if res.get("error"):
+            raise ValueError(res["error"])  # same errors run() raises, for key rotation
+        lines = []
+        box = res.get("answer_box") or {}
+        box_text = box.get("answer") or box.get("snippet")
+        if box_text:
+            lines.append(f"Answer box: {box_text} {box.get('link', '')}".strip())
+        for item in (res.get("top_stories") or [])[:3]:
+            lines.append(f"- {item.get('title', '')} ({item.get('source', '')}, "
+                         f"{item.get('date', '')}) {item.get('link', '')}")
+        for item in (res.get("organic_results") or [])[:6]:
+            lines.append(f"- {item.get('title', '')}: {item.get('snippet', '')} "
+                         f"{item.get('link', '')}")
+        return "\n".join(lines)
+
+    def tavily_with_links(self, query: str) -> str:
+        """Tavily results as '- title: content url' lines ('' if unavailable).
+        Tavily is built for research, so it surfaces news articles with their
+        text already extracted, where plain Google results often don't."""
+        if not self.tavily:
+            return ""
+        try:
+            res = self.tavily.invoke(query)
+        except Exception as e:
+            print(f"      [WARN] Tavily failed: {e}")
+            return ""
+        if not isinstance(res, list):
+            return ""
+        return "\n".join(
+            f"- {r.get('title', '')}: {r.get('content', '')} {r.get('url', '')}"
+            for r in res if isinstance(r, dict)
+        )
+
+    def invoke(self, query: str, with_links: bool = False) -> str:
         search_output = ""
-        if self.serp:
+        # Try SerpAPI keys in order; rotate to the next when one is exhausted.
+        while self._serp_idx < len(self.serps):
+            serp = self.serps[self._serp_idx]
             try:
-                res = self.serp.run(query)
+                res = self._serp_with_links(serp, query) if with_links else serp.run(query)
                 if res and "No good search result found" not in str(res):
                     search_output = str(res)
+                break  # got a usable (or empty-but-valid) response
             except Exception as e:
+                if self._is_exhausted(e) and self._serp_idx < len(self.serps) - 1:
+                    self._serp_idx += 1
+                    print(f"      [WARN] SerpAPI key #{self._serp_idx} exhausted, "
+                          f"switching to backup key #{self._serp_idx + 1}: {e}")
+                    continue
                 print(f"      [WARN] SerpAPI failed: {e}")
+                break
         
         if not search_output and self.tavily:
             try:
@@ -137,23 +286,8 @@ class SearchTool:
             return "No search results found."
 
         # ── Deep Scraping: open the top links and read their full page content ──
-        urls = re.findall(r'https?://[^\s,\'"\)\]]+', search_output)
-        # Search-engine / API hosts that appear inside raw results but are not
-        # real sources (serpapi.com links even 401 without an API key).
-        skip_hosts = ['serpapi.com', 'google.com/search', 'duckduckgo.com',
-                      'bing.com', 'tavily.com', 'googleapis.com']
-        # Deduplicate while preserving order
-        seen = set()
-        unique_urls = []
-        for u in urls:
-            # Strip trailing punctuation
-            u = u.rstrip('.,:;')
-            if (u not in seen
-                    and not any(ext in u for ext in ['.pdf', '.jpg', '.png', '.gif', '.mp4'])
-                    and not any(host in u for host in skip_hosts)):
-                seen.add(u)
-                unique_urls.append(u)
-        
+        unique_urls = _source_urls(search_output)
+
         scraped_sections = []
         for url in unique_urls[:3]:  # Open top 3 unique links
             print(f"      -> OPENING LINK: {url[:80]}")
@@ -257,6 +391,8 @@ def _llm_invoke(prompt: str, retries: int = 2):
 
 def _parse_json(text: str):
     """Robustly extract JSON from LLM output."""
+    # Strip control/binary characters that break json.loads (defense-in-depth)
+    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', '', text)
     # Strip markdown code fences
     text = re.sub(r"```(?:json)?\s*", "", text)
     text = re.sub(r"```", "", text)
@@ -324,15 +460,16 @@ def _get_cached_search(query_hash: str) -> str | None:
     return results
 
 
-def _cache_search(query: str, query_hash: str, results: str) -> None:
-    """Save search results to MongoDB cache."""
+def _cache_search(query: str, query_hash: str, results: str,
+                  ttl_hours: float = SEARCH_CACHE_TTL_HOURS) -> None:
+    """Save search results to MongoDB cache (the TTL index deletes them after ttl_hours)."""
     now = datetime.now(timezone.utc)
     cache_doc = SearchCacheDoc(
         query_hash=query_hash,
         query=query,
         results=results,
         cached_at=now,
-        expires_at=now + timedelta(hours=SEARCH_CACHE_TTL_HOURS),
+        expires_at=now + timedelta(hours=ttl_hours),
     )
     search_cache_col().update_one(
         {"query_hash": query_hash},
@@ -341,11 +478,18 @@ def _cache_search(query: str, query_hash: str, results: str) -> None:
     )
 
 
+# Shared by claim rephrasing and question planning: short or ambiguous inputs
+# ("LPU college this week") otherwise search for the wrong thing entirely.
+_QUERY_GUIDANCE = """- Expand abbreviations and acronyms to their full names when you are confident what they refer to (e.g. "LPU" -> "Lovely Professional University"), and add disambiguating context such as the city, state or country.
+- Turn relative dates ("this week", "yesterday", "recently") into explicit dates or months based on today's date."""
+
+
 def _rephrase_query(claim: str) -> list[str]:
     """Ask LLM to generate 2-3 alternative search query rephrasings targeting newsletters and news articles."""
     prompt = f"""You are an expert news research assistant. Today's date is {_today_str()}.
 Given the factual claim below, generate exactly 3 alternative search queries designed to find recent news articles, newsletters, and fact-checks about this topic.
 Make the queries varied (e.g. keyword-focused, headline-focused, and entity/date-focused).
+{_QUERY_GUIDANCE}
 Remember the current date when phrasing time-sensitive queries — events up to {_today_str()} may already have happened even if they are after your training cutoff.
 
 Claim: "{claim}"
@@ -416,6 +560,58 @@ def search_all_claims(claims: list[str]) -> list[EvidenceItem]:
 
 # ── Step 3: Verify claims ───────────────────────────────────────────────────
 
+_SUFFICIENCY_PROMPT = """You are a strict evidence auditor for a fact-checking system.
+Today's date is {current_date}.
+
+You are given a CLAIM and the SEARCH EVIDENCE gathered for it. Judge ONLY whether
+the evidence is sufficient and directly relevant to make a *confident* true/false
+determination about THIS SPECIFIC claim.
+
+Do NOT decide whether the claim is true or false. Judge ONLY the sufficiency and
+directness of the evidence itself.
+
+Scoring guide (be strict):
+- 0.80-1.00: Evidence explicitly and directly addresses the exact claim — the same
+  named entities, dates, numbers appear — from credible sources.
+- 0.40-0.79: Evidence is about the right topic but only partial, indirect, or needs
+  inference to connect to the claim's specific assertion.
+- 0.00-0.39: Evidence is tangential, missing, about a different entity, or does not
+  actually mention the specific fact asserted. The claim cannot be confidently judged.
+
+## CLAIM:
+{claim}
+
+## SEARCH EVIDENCE:
+{evidence_text}
+
+## Output:
+Return ONLY a JSON object, no commentary:
+{{"sufficiency": 0.0, "reason": "one short sentence"}}"""
+
+
+def assess_evidence_sufficiency(claim: str, evidence_text: str) -> float | None:
+    """Second-stage abstention signal: one focused LLM call that rates how well the
+    evidence actually supports a confident verdict on *this* claim (0.0-1.0).
+
+    Returns None on failure so the caller can decide not to abstain. This is
+    deliberately separate from the verdict's self-reported confidence, which we
+    measured to be uninformative (near-constant ~0.9 on right and wrong alike)."""
+    cleaned = _trim_evidence(_clean_evidence(evidence_text), 6000)
+    prompt = _SUFFICIENCY_PROMPT.format(
+        current_date=_today_str(), claim=claim, evidence_text=cleaned,
+    )
+    try:
+        response = _llm_invoke(prompt, retries=1)
+        obj = _parse_json(response.content)
+        if isinstance(obj, list) and obj:
+            obj = obj[0]
+        score = float(obj.get("sufficiency"))
+        return max(0.0, min(1.0, score))
+    except Exception as e:
+        print(f"      [WARN] sufficiency judge failed: {e}")
+        return None
+
+
 def verify_claims(claims: list[str], evidence: list[EvidenceItem]) -> list[VerdictItem]:
     """Ask the LLM to judge each claim against gathered evidence."""
     template = get_active_prompt("claim_verification")
@@ -429,7 +625,7 @@ def verify_claims(claims: list[str], evidence: list[EvidenceItem]) -> list[Verdi
     def build_prompt(budget: int) -> str:
         evidence_text = "\n\n".join(
             f"--- Evidence for Claim {e.claim_index + 1} ---\n"
-            f"{_trim_evidence(e.raw_results, budget)}"
+            f"{_trim_evidence(_clean_evidence(e.raw_results), budget)}"
             for e in evidence
         )
         return template.format(
@@ -765,6 +961,265 @@ def fact_check(article_text: str, max_claims: int = 5) -> dict:
     """
     result = None
     for event in fact_check_stream(article_text, max_claims=max_claims):
+        if event.get("event") == "done":
+            result = event["result"]
+    return result
+
+
+# ── Question answering ──────────────────────────────────────────────────────
+# A short question ("what happened at LPU this week?") has no claims to verify;
+# forcing it through claim extraction produces a vague, unverifiable claim. So
+# questions are answered instead: plan searches -> search -> cited answer.
+
+QUESTION_MAX_CHARS = 400
+ANSWER_EVIDENCE_CHAR_BUDGET = 20000   # ~5k tokens, under the per-minute limit
+ANSWER_MAX_SOURCES = 12
+
+_QUESTION_STARTS = (
+    "what", "who", "whom", "whose", "when", "where", "why", "how", "which",
+    "is", "are", "was", "were", "do", "does", "did", "can", "could", "will",
+    "would", "should", "has", "have", "had", "tell me", "explain", "describe",
+)
+
+
+def is_question(text: str) -> bool:
+    """Short input phrased as a question -> answer it rather than fact-check it."""
+    t = " ".join(text.split()).lower()
+    if not t or len(t) > QUESTION_MAX_CHARS:
+        return False
+    if t.endswith("?"):
+        return True
+    return any(t == w or t.startswith(w + " ") for w in _QUESTION_STARTS)
+
+
+def _normalize_question(text: str) -> str:
+    """'What happened at LPU?' and 'what happened at lpu' are the same question."""
+    return " ".join(text.split()).lower().rstrip("?!. ")
+
+
+def input_hash(text: str) -> str:
+    """Hash used to recognise a repeat of the same input (article_hash). Questions
+    are normalized first; articles must match exactly."""
+    return _sha256(_normalize_question(text) if is_question(text) else text)
+
+
+def plan_search_queries(question: str) -> list[str]:
+    """Ask the LLM for 3 varied web searches that together answer the question.
+
+    The plan is cached per (normalized question, today's date): the LLM phrases
+    the queries a little differently every time, and the search cache is keyed
+    on exact query text, so without this a repeated question never hit it. The
+    date is part of the key because the plan resolves "this week" into dates."""
+    plan_key = f"answer-plan-v1:{_today_str()}:{_normalize_question(question)}"
+    plan_hash = _sha256(plan_key)
+    cached = _get_cached_search(plan_hash)
+    if cached:
+        try:
+            queries = json.loads(cached)
+            if isinstance(queries, list) and queries:
+                print("      -> query plan cache hit")
+                return [str(q) for q in queries]
+        except ValueError:
+            pass  # unreadable entry: re-plan and overwrite it below
+
+    prompt = f"""You are a research assistant planning web searches. Today's date is {_today_str()}.
+
+Question: "{question}"
+
+Write exactly 3 web search queries that together will find current, reliable sources to answer this question.
+{_QUERY_GUIDANCE}
+- Make the queries varied: one close to the question's wording, one keyword/entity focused, one news/headline focused.
+
+Return ONLY a JSON array of 3 query strings. Example: ["query 1", "query 2", "query 3"]"""
+    try:
+        res = _llm_invoke(prompt, retries=1)
+        queries = _parse_json(res.content)
+        if isinstance(queries, list) and queries:
+            queries = [str(q) for q in queries[:3]]
+            _cache_search(plan_key, plan_hash, json.dumps(queries), ttl_hours=ANSWER_CACHE_TTL_HOURS)
+            return queries
+    except Exception as e:
+        print(f"      [WARN] Query planning failed: {e}")
+    return [question]  # fallback is not cached, so the next ask re-plans
+
+
+def _search_query(query: str) -> str:
+    """One web search (with source links, so answers can cite and we can read
+    the top pages), served from the MongoDB cache when possible."""
+    query_hash = _sha256("answer-query-v2:" + query)
+    cached = _get_cached_search(query_hash)
+    if cached:
+        print("      -> cache hit")
+        return cached
+    # Tavily first (research-grade news), then Google via SerpAPI, whose top
+    # pages also get opened and read.
+    parts = []
+    tavily = search_tool.tavily_with_links(query)
+    if tavily:
+        parts.append(f"--- RESEARCH SEARCH RESULTS ---\n{tavily}")
+    web = search_tool.invoke(query, with_links=True)
+    if web and "No search results found" not in web:
+        parts.append(f"--- WEB SEARCH RESULTS ---\n{web}")
+    if not parts:
+        return "No search results found."
+    results = "\n\n".join(parts)
+    _cache_search(query, query_hash, results, ttl_hours=ANSWER_CACHE_TTL_HOURS)
+    return results
+
+
+def _answer_source_urls(evidence: list[EvidenceItem]) -> list[str]:
+    """Candidate sources for an answer: the search hits and the pages we opened.
+    Links *inside* scraped pages (share buttons, shorteners, forms) are skipped."""
+    marker = "========== DEEP WEB VERIFICATION"
+    parts = []
+    for e in evidence:
+        head, _, scraped = e.raw_results.partition(marker)
+        parts.append(head)
+        parts.extend(re.findall(r"--- SCRAPED SOURCE PAGE: (\S+) ---", scraped))
+    return _source_urls("\n".join(parts))
+
+
+def _cite_sources(answer: str, sources: list[str]) -> tuple[str, list[str]]:
+    """Keep only the sources the answer cites, renumber them 1..k in order of
+    first citation, and turn each [n] into a markdown link to its source."""
+    # gpt-oss models cite as 【1】 or 【1†L3-L8】, others as [1, 3]; normalize to [n].
+    answer = re.sub(r"【\s*(\d{1,2})[^】]*】", r"[\1]", answer)
+    answer = re.sub(
+        r"\[(\d{1,2}(?:\s*,\s*\d{1,2})+)\]",
+        lambda m: "".join(f"[{n.strip()}]" for n in m.group(1).split(",")),
+        answer,
+    )
+    cite = re.compile(r"\[(\d{1,2})\](?!\()")
+    order: list[int] = []
+    for m in cite.finditer(answer):
+        n = int(m.group(1))
+        if 1 <= n <= len(sources) and n not in order:
+            order.append(n)
+    new_num = {old: i for i, old in enumerate(order, 1)}
+    used = [sources[old - 1] for old in order]
+
+    def link(m):
+        n = int(m.group(1))
+        if n not in new_num:
+            return ""  # cites a source that doesn't exist: drop it rather than mislead
+        k = new_num[n]
+        return f"[[{k}]]({used[k - 1]})"
+    linked = cite.sub(link, answer)
+    return re.sub(r"[ \t]+([.,;:!?])", r"\1", linked), used  # tidy gaps left by dropped cites
+
+
+def write_answer(question: str, evidence: list[EvidenceItem]) -> tuple[str, list[str]]:
+    """Answer the question from the gathered evidence. Returns (markdown, sources)."""
+    per_query = ANSWER_EVIDENCE_CHAR_BUDGET // max(len(evidence), 1)
+    evidence_text = "\n\n".join(
+        f"=== RESULTS FOR: \"{e.query}\" ===\n{_trim_evidence(_clean_evidence(e.raw_results), per_query)}"
+        for e in evidence
+    )
+    sources = _answer_source_urls(evidence)[:ANSWER_MAX_SOURCES]
+    source_list = (
+        "\n".join(f"[{i}] {u}" for i, u in enumerate(sources, 1))
+        or "(no source URLs were found, so do not add any [n] citations)"
+    )
+
+    prompt = f"""You are a careful research assistant. Today's date is {_today_str()}.
+Your training data has a cutoff, so events up to {_today_str()} may have happened after it. Base the answer ONLY on the web evidence below, never on your own memory of what has or hasn't happened.
+
+QUESTION:
+{question}
+
+SOURCES (cite these by number):
+{source_list}
+
+WEB EVIDENCE (search results and pages we opened and read):
+{evidence_text}
+
+Write the answer in Markdown:
+- Open with a direct 1-2 sentence answer to the question.
+- Follow with the key supporting details as short paragraphs or bullet points (who, what, when, where, and why it matters).
+- Cite sources inline with plain square brackets like [1] or [2][3], using the numbers above, only where that source actually supports the statement.
+- Prefer established news outlets and official sources over social-media posts, and cite more than one source when several agree.
+- If the evidence is thin, conflicting or doesn't answer the question, say so plainly instead of guessing.
+- No headings, and do not add a sources list (it is added automatically). Keep it under 250 words."""
+
+    response = _llm_invoke(prompt)
+    return _cite_sources(response.content.strip(), sources)
+
+
+def answer_question_stream(question: str):
+    """
+    Answer a question as a generator of progress events:
+      {"event": "step",    "step": "plan"}
+      {"event": "queries", "queries": [...]}
+      {"event": "step",    "step": "search", "current": i, "total": n, "query": "..."}
+      {"event": "step",    "step": "answer"}
+      {"event": "done",    "result": {...}}
+    """
+    start = time.time()
+    print("=" * 60)
+    print("       QUESTION ANSWERING")
+    print("=" * 60)
+
+    yield {"event": "step", "step": "plan"}
+    queries = plan_search_queries(question)
+    print(f"\n>> Planned {len(queries)} searches: {queries}")
+    yield {"event": "queries", "queries": queries}
+
+    evidence = []
+    for i, q in enumerate(queries):
+        yield {"event": "step", "step": "search", "current": i + 1, "total": len(queries), "query": q}
+        print(f"   [SEARCH] {i + 1}/{len(queries)}: {q}")
+        evidence.append(EvidenceItem(claim_index=i, query=q, raw_results=_search_query(q)))
+        time.sleep(SEARCH_DELAY_SECONDS)
+
+    yield {"event": "step", "step": "answer"}
+    answer, sources = write_answer(question, evidence)
+    duration = round(time.time() - start, 2)
+
+    doc_id = save_result(FactCheckResult(
+        article_text=question.strip(),
+        article_hash=input_hash(question),
+        mode="answer",
+        answer=answer,
+        sources=sources,
+        evidence=evidence,
+        model_used=GROQ_MODEL,
+        duration_seconds=duration,
+    ))
+    print(f"\n>> Answered in {duration}s, saved as {doc_id}")
+
+    yield {
+        "event": "done",
+        "result": {
+            "_id": doc_id,
+            "mode": "answer",
+            "answer": answer,
+            "sources": sources,
+            "claims": [],
+            "verdicts": [],
+            "credibility_score": 0.5,
+            "overall_verdict": "",
+            "duration_seconds": duration,
+        },
+    }
+
+
+# ── Entry point: route each input to fact-checking or answering ─────────────
+
+def analyze_stream(text: str, max_claims: int = 5):
+    """Questions are answered; articles and statements are fact-checked. The
+    first event announces which mode was chosen so the UI can show the right steps."""
+    if is_question(text):
+        yield {"event": "mode", "mode": "answer"}
+        yield from answer_question_stream(text)
+    else:
+        yield {"event": "mode", "mode": "fact_check"}
+        yield from fact_check_stream(text, max_claims=max_claims)
+
+
+def analyze(text: str, max_claims: int = 5) -> dict:
+    """Blocking wrapper around analyze_stream."""
+    result = None
+    for event in analyze_stream(text, max_claims=max_claims):
         if event.get("event") == "done":
             result = event["result"]
     return result

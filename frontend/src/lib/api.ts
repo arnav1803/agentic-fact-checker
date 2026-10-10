@@ -21,6 +21,9 @@ const factCheckResultSchema = z.object({
   model: z.string().optional(),
   article_text: z.string().optional(),
   created_at: z.string().optional(),
+  mode: z.enum(["fact_check", "answer"]).optional(),
+  answer: z.string().optional(),
+  sources: z.array(z.string()).optional(),
 });
 
 const historyItemSchema = z.object({
@@ -28,6 +31,7 @@ const historyItemSchema = z.object({
   article_text: z.string(),
   credibility_score: z.number(),
   created_at: z.string(),
+  mode: z.enum(["fact_check", "answer"]).optional(),
 });
 
 // ---------- Mock store ----------

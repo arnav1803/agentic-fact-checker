@@ -1,0 +1,7 @@
+.env
+.env.*
+__pycache__/
+.deepeval/
+evals/
+check.py
+check2.py

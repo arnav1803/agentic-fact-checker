@@ -9,7 +9,19 @@ export const SAMPLE_ARTICLE =
 
 const MAX_CHARS = 20_000;
 const MIN_CHARS = 40;
+const MIN_QUESTION_CHARS = 8;
 const DRAFT_DEBOUNCE_MS = 600;
+
+// Mirrors the backend's is_question(): short questions are answered, not
+// fact-checked, so they don't need an article's minimum length.
+const QUESTION_MAX_CHARS = 400;
+const QUESTION_START =
+  /^(what|who|whom|whose|when|where|why|how|which|is|are|was|were|do|does|did|can|could|will|would|should|has|have|had|tell me|explain|describe)\b/i;
+
+function looksLikeQuestion(text: string) {
+  const t = text.replace(/\s+/g, " ").trim();
+  return t.length <= QUESTION_MAX_CHARS && (t.endsWith("?") || QUESTION_START.test(t));
+}
 
 type Mode = "text" | "url";
 
@@ -62,9 +74,12 @@ export function InputForm({ loading, serverError, userKey, onSubmit }: Props) {
   if (mode === "text") {
     if (charCount > MAX_CHARS)
       validationError = `Article is too long (max ${MAX_CHARS.toLocaleString()} characters).`;
-    else if (trimmed.length === 0) validationError = "Please paste an article to analyze.";
-    else if (trimmed.length < MIN_CHARS)
-      validationError = `Article is too short (min ${MIN_CHARS} characters).`;
+    else if (trimmed.length === 0)
+      validationError = "Please paste an article to analyze, or ask a question.";
+    else if (looksLikeQuestion(trimmed)) {
+      if (trimmed.length < MIN_QUESTION_CHARS) validationError = "Please ask a complete question.";
+    } else if (trimmed.length < MIN_CHARS)
+      validationError = `Article is too short (min ${MIN_CHARS} characters). To ask a question instead, start with a question word or end with "?".`;
   } else {
     if (trimmedUrl.length === 0) validationError = "Please enter an article URL.";
     else if (!/^https?:\/\/\S+\.\S+/i.test(trimmedUrl))
@@ -168,7 +183,7 @@ export function InputForm({ loading, serverError, userKey, onSubmit }: Props) {
                 }
               }}
               rows={8}
-              placeholder="Paste your news article here... (Ctrl+Enter to analyze)"
+              placeholder="Paste a news article, or ask a question like “What happened at LPU this week?” (Ctrl+Enter to run)"
               aria-invalid={showError ? true : undefined}
               aria-describedby="article-help article-error"
               className="w-full max-h-[420px] resize-y rounded-lg border border-border bg-card p-4 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:border-primary/60 focus:outline-none"

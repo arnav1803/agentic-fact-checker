@@ -77,6 +77,7 @@ export function recordResult(userKey: string, result: FactCheckResult) {
     article_text: (result.article_text ?? "").slice(0, 200),
     credibility_score: result.credibility_score,
     created_at: result.created_at ?? new Date().toISOString(),
+    mode: result.mode,
   });
   setUserHistory(userKey, items);
   pruneFullResults(userKey, items);

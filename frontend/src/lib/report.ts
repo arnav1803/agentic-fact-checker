@@ -1,8 +1,24 @@
 import type { FactCheckResult } from "./types";
 import { verdictLabel } from "@/features/fact-check/verdict";
 
+/** Render an answered question as Markdown: question, cited answer, sources. */
+function answerToMarkdown(result: FactCheckResult): string {
+  const lines = [`# ${result.article_text ?? "Question"}`, ``, result.answer ?? "", ``];
+  if (result.sources?.length) {
+    lines.push(`## Sources`, ``, ...result.sources.map((url, i) => `${i + 1}. ${url}`), ``);
+  }
+  lines.push(
+    `---`,
+    `*Answered by FactCheck AI (${result.model ?? "unknown model"}) in ${result.duration_seconds}s` +
+      (result.created_at ? ` on ${result.created_at}` : "") +
+      `*`,
+  );
+  return lines.join("\n");
+}
+
 /** Render a fact-check result as a shareable Markdown report. */
 export function resultToMarkdown(result: FactCheckResult): string {
+  if (result.mode === "answer") return answerToMarkdown(result);
   const pct = Math.round(result.credibility_score * 100);
   const lines: string[] = [
     `# FactCheck AI Report`,

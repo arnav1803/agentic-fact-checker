@@ -101,7 +101,7 @@ function HistoryDetailPage() {
         </div>
       ) : data ? (
         <>
-          {data.article_text ? (
+          {data.article_text && data.mode !== "answer" ? (
             <section className="glass-card p-5">
               <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Original article

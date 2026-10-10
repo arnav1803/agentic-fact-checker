@@ -52,12 +52,16 @@ function HistoryPage() {
 
   const stats = useMemo(() => {
     if (items.length === 0) return null;
-    const avg = items.reduce((a, i) => a + i.credibility_score, 0) / items.length;
+    // Answered questions have no credibility score, so only fact-checks count.
+    const checks = items.filter((i) => i.mode !== "answer");
+    const avg = checks.length
+      ? checks.reduce((a, i) => a + i.credibility_score, 0) / checks.length
+      : null;
     return {
       total: items.length,
       avg,
-      high: items.filter((i) => inBand(i.credibility_score, "high")).length,
-      low: items.filter((i) => inBand(i.credibility_score, "low")).length,
+      high: checks.filter((i) => inBand(i.credibility_score, "high")).length,
+      low: checks.filter((i) => inBand(i.credibility_score, "low")).length,
     };
   }, [items]);
 
@@ -66,7 +70,8 @@ function HistoryPage() {
     return items
       .filter(
         (i) =>
-          inBand(i.credibility_score, band) && (!q || i.article_text.toLowerCase().includes(q)),
+          (i.mode === "answer" ? band === "all" : inBand(i.credibility_score, band)) &&
+          (!q || i.article_text.toLowerCase().includes(q)),
       )
       .sort((a, b) => Number(b.pinned ?? false) - Number(a.pinned ?? false));
   }, [items, search, band]);
@@ -120,8 +125,8 @@ function HistoryPage() {
           <StatTile label="Total checks" value={String(stats.total)} />
           <StatTile
             label="Avg. credibility"
-            value={`${Math.round(stats.avg * 100)}%`}
-            color={scoreBand(stats.avg).color}
+            value={stats.avg === null ? "—" : `${Math.round(stats.avg * 100)}%`}
+            color={stats.avg === null ? undefined : scoreBand(stats.avg).color}
           />
           <StatTile
             label="Credible articles"
@@ -197,11 +202,17 @@ function HistoryPage() {
                       {item.pinned && <Pin className="mr-1.5 inline size-3.5 text-primary" />}
                       {item.article_text}
                     </p>
-                    <span
-                      className={`shrink-0 text-sm font-semibold tabular-nums ${bandInfo.color}`}
-                    >
-                      {Math.round(item.credibility_score * 100)}%
-                    </span>
+                    {item.mode === "answer" ? (
+                      <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary">
+                        Answer
+                      </span>
+                    ) : (
+                      <span
+                        className={`shrink-0 text-sm font-semibold tabular-nums ${bandInfo.color}`}
+                      >
+                        {Math.round(item.credibility_score * 100)}%
+                      </span>
+                    )}
                   </div>
                   <div className="mt-2 text-xs text-muted-foreground">
                     {relativeTime(item.created_at)}

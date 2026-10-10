@@ -48,9 +48,13 @@ export function HistorySidebar() {
                     {item.article_text.length > 60 ? "…" : ""}
                   </p>
                   <div className="mt-2 flex items-center justify-between">
-                    <span className={`text-[11px] font-medium tabular-nums ${band.color}`}>
-                      {Math.round(item.credibility_score * 100)}%
-                    </span>
+                    {item.mode === "answer" ? (
+                      <span className="text-[11px] font-medium text-primary">Answer</span>
+                    ) : (
+                      <span className={`text-[11px] font-medium tabular-nums ${band.color}`}>
+                        {Math.round(item.credibility_score * 100)}%
+                      </span>
+                    )}
                     <span className="text-[11px] text-muted-foreground">
                       {relativeTime(item.created_at)}
                     </span>

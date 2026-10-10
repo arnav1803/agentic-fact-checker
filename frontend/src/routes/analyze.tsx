@@ -21,7 +21,7 @@ export const Route = createFileRoute("/analyze")({
       {
         name: "description",
         content:
-          "Paste a news article and get a credibility score with per-claim verdicts in seconds.",
+          "Paste a news article to get a credibility score with per-claim verdicts, or ask a question and get an answer from live web sources.",
       },
     ],
   }),
@@ -71,15 +71,23 @@ function HomePage() {
           { article_text: article, url, max_claims: maxClaims },
           (ev) => {
             resetIdle();
-            if (ev.event === "claims" && ev.claims) {
-              setProgress((p) => ({ phase: p?.phase ?? "extract", claims: ev.claims }));
+            if (ev.event === "mode" && ev.mode) {
+              const mode = ev.mode;
+              setProgress({ mode, phase: mode === "answer" ? "plan" : "extract" });
+            } else if (ev.event === "claims" && ev.claims) {
+              setProgress((p) => ({ ...p, phase: p?.phase ?? "extract", claims: ev.claims }));
+            } else if (ev.event === "queries" && ev.queries) {
+              setProgress((p) => ({ ...p, phase: p?.phase ?? "plan", queries: ev.queries }));
             } else if (ev.event === "step" && ev.step) {
               setProgress((p) => ({
+                mode: p?.mode,
                 claims: p?.claims,
+                queries: p?.queries,
                 phase: ev.step!,
                 searchCurrent: ev.current,
                 searchTotal: ev.total,
                 claim: ev.claim,
+                query: ev.query,
               }));
             }
           },
@@ -97,7 +105,7 @@ function HomePage() {
       recordResult(userKey, data);
       clearDraft(userKey);
       qc.invalidateQueries({ queryKey: ["history"] });
-      toast.success("Analysis complete");
+      toast.success(data.mode === "answer" ? "Answer ready" : "Analysis complete");
     },
     onError: (err) => {
       if ((err as Error).name === "AbortError") return;
@@ -139,7 +147,9 @@ function HomePage() {
             Fact-check any article in seconds.
           </h1>
           <p className="mt-2 max-w-2xl text-xs text-muted-foreground leading-relaxed">
-            Paste a news article or URL below to extract factual claims, search live sources, and compute a credibility rating using Groq LLMs and real-time search.
+            Paste a news article or URL below to extract factual claims, search live sources, and
+            compute a credibility rating using Groq LLMs and real-time search. Or just ask a
+            question, and get an answer with cited sources.
           </p>
         </div>
       </section>
@@ -160,7 +170,11 @@ function HomePage() {
           {isLoading ? (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold">Analyzing your article</h2>
+                <h2 className="text-sm font-semibold">
+                  {progress?.mode === "answer"
+                    ? "Researching your question"
+                    : "Analyzing your article"}
+                </h2>
                 <button
                   type="button"
                   onClick={cancel}

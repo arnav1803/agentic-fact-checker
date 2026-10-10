@@ -47,9 +47,12 @@ class VerdictItem(BaseModel):
 # ── Fact Check Result ────────────────────────────────────────────────────────
 
 class FactCheckResult(BaseModel):
-    """Full fact-check run stored in MongoDB."""
+    """Full fact-check run (or answered question) stored in MongoDB."""
     article_text: str
     article_hash: str
+    mode: str = "fact_check"           # fact_check | answer
+    answer: str = ""                   # answer mode: markdown answer with [n] citations
+    sources: list[str] = []            # answer mode: source URLs, numbered from 1
     claims: list[str] = []
     evidence: list[EvidenceItem] = []
     verdicts: list[VerdictItem] = []

@@ -19,12 +19,13 @@ Run:
 """
 
 import json
+import queue
 import threading
 import time
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -36,11 +37,13 @@ from config import (
     AUTO_SEED_PROMPTS,
     CORS_ORIGIN_REGEX,
     CORS_ORIGINS,
+    FACTCHECK_DEBATE_MODEL,
     GROQ_MODEL,
     PORT,
 )
 from db import fact_checks_col, get_client
 from fact_checker import analyze, analyze_stream, fetch_article_text, input_hash
+from madam_rag import DEFAULT_ROUNDS, MAX_ROUNDS
 
 # ── App ──────────────────────────────────────────────────────────────────────
 
@@ -143,6 +146,12 @@ class FactCheckRequest(BaseModel):
         default=False,
         description="Re-run the pipeline even if this exact article was checked recently",
     )
+    verification: Literal["standard", "madam"] = Field(
+        default="standard",
+        description="'standard': one LLM call judges all claims. 'madam': MADAM-RAG "
+                    "multi-agent debate, one agent per web source (slower, more tokens).",
+    )
+    debate_rounds: int = Field(default=DEFAULT_ROUNDS, ge=1, le=MAX_ROUNDS)
 
 
 class VerdictResponse(BaseModel):
@@ -191,6 +200,8 @@ def _doc_to_response(doc: dict) -> dict:
         "model": doc.get("model_used", GROQ_MODEL),
         "article_text": doc.get("article_text", ""),
         "created_at": _iso(doc.get("created_at", datetime.now(timezone.utc))),
+        "verification_method": doc.get("verification_method", "standard"),
+        "debates": doc.get("debates", []),
         "mode": doc.get("mode", "fact_check"),
         "answer": doc.get("answer", ""),
         "sources": doc.get("sources", []),
@@ -216,12 +227,18 @@ def _resolve_article_text(req: FactCheckRequest) -> str:
     raise HTTPException(status_code=400, detail="Provide article_text or url")
 
 
-def _find_recent_duplicate(article_text: str) -> Optional[dict]:
-    """Identical article checked within the dedup window? Return its doc."""
+def _find_recent_duplicate(article_text: str, verification: str) -> Optional[dict]:
+    """Identical article checked the same way within the dedup window? Return its doc."""
     article_hash = input_hash(article_text)
     cutoff = datetime.now(timezone.utc) - timedelta(hours=DEDUP_WINDOW_HOURS)
+    method = (
+        {"verification_method": "madam"}
+        if verification == "madam"
+        # Results saved before debates existed have no verification_method field
+        else {"verification_method": {"$in": ["standard", None]}}
+    )
     return fact_checks_col().find_one(
-        {"article_hash": article_hash, "created_at": {"$gte": cutoff}},
+        {"article_hash": article_hash, "created_at": {"$gte": cutoff}, **method},
         sort=[("created_at", -1)],
     )
 
@@ -247,14 +264,19 @@ def run_fact_check(
 
     # ── Dedup: identical article checked very recently? Return the saved result ──
     if not req.force:
-        recent = _find_recent_duplicate(article_text)
+        recent = _find_recent_duplicate(article_text, req.verification)
         if recent:
             return _doc_to_response(recent)
 
     _check_rate_limit(request)
 
     try:
-        result = analyze(article_text, max_claims=req.max_claims)
+        result = analyze(
+            article_text,
+            max_claims=req.max_claims,
+            verification=req.verification,
+            debate_rounds=req.debate_rounds,
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Pipeline error: {str(e)}")
 
@@ -276,10 +298,53 @@ def run_fact_check(
         "model": GROQ_MODEL,
         "article_text": article_text.strip(),
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "verification_method": result.get("verification_method", "standard"),
+        "debates": result.get("debates", []),
         "mode": result.get("mode", "fact_check"),
         "answer": result.get("answer", ""),
         "sources": result.get("sources", []),
     }
+
+
+HEARTBEAT_SECONDS = 15
+
+
+def _with_heartbeat(lines, every: float = HEARTBEAT_SECONDS):
+    """
+    Yield from an NDJSON line generator, adding {"event":"ping"} whenever it has
+    been quiet for `every` seconds. A slow step (a Groq rate-limit backoff, a
+    slow site) otherwise looks like a dead connection to the client's idle
+    watchdog. If the client disconnects, the pipeline stops at its next event.
+    """
+    q: queue.Queue = queue.Queue()
+    stop = threading.Event()
+    done = object()
+
+    def produce():
+        try:
+            for line in lines:
+                if stop.is_set():
+                    break
+                q.put(line)
+        except Exception as e:  # the wrapped generators report their own errors; belt and braces
+            q.put(json.dumps({"event": "error", "detail": f"Pipeline error: {e}"}) + "\n")
+        finally:
+            lines.close()
+            q.put(done)
+
+    threading.Thread(target=produce, daemon=True).start()
+    try:
+        while True:
+            try:
+                item = q.get(timeout=every)
+            except queue.Empty:
+                yield json.dumps({"event": "ping"}) + "\n"
+                continue
+            if item is done:
+                return
+            yield item
+    finally:
+        stop.set()
 
 
 @app.post("/api/fact-check/stream")
@@ -297,12 +362,14 @@ def run_fact_check_streaming(
       {"event":"step","step":"verify"} / {"event":"step","step":"summarize"}
       {"event":"done","result":{...full fact-check response...}}
       {"event":"error","detail":"..."}   (on failure)
+    With verification="madam", "sources" and "debate" events stream each
+    claim's debate live (see fact_checker.fact_check_stream).
     """
     article_text = _resolve_article_text(req)
 
     # Dedup hits stream a single "done" event immediately
     if not req.force:
-        recent = _find_recent_duplicate(article_text)
+        recent = _find_recent_duplicate(article_text, req.verification)
         if recent:
             def cached_gen():
                 yield json.dumps({"event": "done", "result": _doc_to_response(recent)}) + "\n"
@@ -312,7 +379,12 @@ def run_fact_check_streaming(
 
     def event_gen():
         try:
-            for event in analyze_stream(article_text, max_claims=req.max_claims):
+            for event in analyze_stream(
+                article_text,
+                max_claims=req.max_claims,
+                verification=req.verification,
+                debate_rounds=req.debate_rounds,
+            ):
                 if event.get("event") == "done":
                     result = event["result"]
                     _tag_owner(result["_id"], x_user_email)
@@ -325,7 +397,7 @@ def run_fact_check_streaming(
             yield json.dumps({"event": "error", "detail": f"Pipeline error: {str(e)}"}) + "\n"
 
     return StreamingResponse(
-        event_gen(),
+        _with_heartbeat(event_gen()),
         media_type="application/x-ndjson",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
@@ -450,6 +522,7 @@ def health():
         "status": "ok" if mongo_ok else "degraded",
         "mongo": "up" if mongo_ok else "down",
         "model": GROQ_MODEL,
+        "debate_model": FACTCHECK_DEBATE_MODEL,
     }
 
 

@@ -60,6 +60,10 @@ class FactCheckResult(BaseModel):
     overall_verdict: str = ""          # LLM's final judgment on the article
     model_used: str = ""
     prompts_used: dict = {}
+    # "standard" (one LLM call judges all claims) or "madam" (multi-agent debate)
+    verification_method: str = "standard"
+    # MADAM-RAG only: one entry per claim with its sources and the full debate record
+    debates: list[dict] = []
     duration_seconds: float = 0.0
     created_at: datetime = Field(default_factory=utc_now)
 

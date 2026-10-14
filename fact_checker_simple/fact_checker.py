@@ -3,8 +3,11 @@ fact_checker.py — Core agentic fact-checking pipeline
 
 Pipeline:
   1. Extract claims from article  (LLM + prompt from MongoDB)
-  2. Search evidence per claim    (DuckDuckGo + MongoDB cache)
-  3. Verify claims vs evidence    (LLM + prompt from MongoDB)
+  2. Search evidence per claim    (SerpAPI / Tavily / DuckDuckGo + MongoDB cache)
+  3. Verify claims vs evidence, one of:
+       standard — one LLM call judges every claim (prompt from MongoDB)
+       madam    — MADAM-RAG: one agent per web source, multi-round debate,
+                  aggregator verdict (see madam_rag.py / madam_verify.py)
   4. Compute credibility score
   5. Persist full result to MongoDB
 
@@ -18,31 +21,33 @@ import json
 import re
 import hashlib
 import time
+from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import datetime, timedelta, timezone
 
-from langchain_groq import ChatGroq
 from langchain_community.utilities import SerpAPIWrapper
 from langchain_community.tools.tavily_search import TavilySearchResults
 
 from config import (
-    GROQ_MODEL, GROQ_TEMPERATURE, GROQ_MAX_TOKENS, GROQ_REASONING_EFFORT,
+    GROQ_MODEL, GROQ_TEMPERATURE, GROQ_MAX_TOKENS,
     SEARCH_NUM_RESULTS, SEARCH_CACHE_TTL_HOURS, ANSWER_CACHE_TTL_HOURS, SEARCH_DELAY_SECONDS,
-    SERPAPI_API_KEY, SERPAPI_API_KEYS, TAVILY_API_KEY
+    SERPAPI_API_KEY, SERPAPI_API_KEYS, TAVILY_API_KEY,
+    MADAM_MAX_AGENTS, MADAM_CONCURRENCY, FACTCHECK_DEBATE_MODEL, FACTCHECK_DEBATE_STRATEGY,
 )
 from db import fact_checks_col, search_cache_col
+import llm as llm_client
+from madam_rag import DEFAULT_ROUNDS
+from madam_verify import (
+    build_sources,
+    merge_duplicate_sources,
+    run_grouped_debate,
+    verdict_from_record,
+    verify_claim_by_debate,
+)
 from models import FactCheckResult, EvidenceItem, VerdictItem, SearchCacheDoc
 from prompts import get_active_prompt
 
 
-# ── LLM & Search tool ───────────────────────────────────────────────────────
-
-llm = ChatGroq(
-    model=GROQ_MODEL,
-    temperature=GROQ_TEMPERATURE,
-    max_tokens=GROQ_MAX_TOKENS,
-    # reasoning_effort is only valid for reasoning models such as gpt-oss
-    **({"reasoning_effort": GROQ_REASONING_EFFORT} if "gpt-oss" in GROQ_MODEL else {}),
-)
+# ── Search tool ──────────────────────────────────────────────────────────────
 
 import os
 os.environ["SERPAPI_API_KEY"] = SERPAPI_API_KEY
@@ -135,7 +140,7 @@ def _clean_evidence(text: str) -> str:
     return _sanitize_text(text)
 
 
-def _scrape_url(url: str) -> str:
+def _scrape_url(url: str, max_chars: int = 2500) -> str:
     """Open a search result link, download the page, strip HTML, return clean text."""
     try:
         html = _fetch_raw_html_or_msn(url, timeout=8)
@@ -152,8 +157,7 @@ def _scrape_url(url: str) -> str:
             return ""
         # Collapse whitespace and strip stray control characters
         clean_text = _sanitize_text(' '.join(text.split()))
-        # Return up to 2500 chars of clean content
-        return clean_text[:2500]
+        return clean_text[:max_chars]
     except Exception as e:
         print(f"         [SCRAPE FAIL] {url[:60]}... -> {e}")
         return ""
@@ -314,6 +318,56 @@ class SearchTool:
             return full_output
         return search_output
 
+    def results(self, query: str, limit: int = 6) -> list[dict]:
+        """
+        Structured results [{title, url, snippet}] for MADAM-RAG, which needs one
+        document per source rather than one text blob. Same provider order as
+        invoke(): SerpAPI -> Tavily -> DuckDuckGo, first non-empty wins.
+        """
+        items: list[dict] = []
+        if self.serp:
+            try:
+                data = self.serp.results(query)
+                items = [
+                    {"title": r.get("title", ""), "url": r.get("link", ""), "snippet": r.get("snippet", "")}
+                    for r in data.get("organic_results", [])
+                ]
+            except Exception as e:
+                print(f"      [WARN] SerpAPI failed: {e}")
+        if not items and self.tavily:
+            try:
+                data = self.tavily.invoke(query)
+                if isinstance(data, list):
+                    items = [
+                        {"title": r.get("title", ""), "url": r.get("url", ""), "snippet": r.get("content", "")}
+                        for r in data if isinstance(r, dict)
+                    ]
+            except Exception as e:
+                print(f"      [WARN] Tavily failed: {e}")
+        if not items and self.ddg:
+            try:
+                from langchain_community.tools import DuckDuckGoSearchResults
+                data = DuckDuckGoSearchResults(max_results=limit, output_format="list").invoke(query)
+                if isinstance(data, list):
+                    items = [
+                        {"title": r.get("title", ""), "url": r.get("link", ""), "snippet": r.get("snippet", "")}
+                        for r in data
+                    ]
+            except Exception as e:
+                print(f"      [WARN] DuckDuckGo failed: {e}")
+
+        return [
+            r for r in items
+            if r["url"].startswith("http")
+            and not any(ext in r["url"].lower() for ext in ['.pdf', '.jpg', '.png', '.gif', '.mp4'])
+            and not any(host in r["url"] for host in _SKIP_HOSTS)
+        ][:limit]
+
+
+# Search-engine / API hosts that appear inside raw results but are not real sources
+_SKIP_HOSTS = ['serpapi.com', 'google.com/search', 'duckduckgo.com',
+               'bing.com', 'tavily.com', 'googleapis.com']
+
 search_tool = SearchTool()
 
 
@@ -362,31 +416,15 @@ def _trim_evidence(raw: str, limit: int) -> str:
     return trimmed + "\n[... evidence truncated to fit model limits ...]"
 
 
-def _is_rate_limit_error(exc: Exception) -> bool:
-    msg = str(exc)
-    return "rate_limit_exceeded" in msg or "413" in msg or "429" in msg or "Request too large" in msg
-
-
-def _suggested_wait_seconds(exc: Exception, default: float) -> float:
-    """Groq 429 messages include 'Please try again in 7.66s' — honor it."""
-    m = re.search(r"try again in ([\d.]+)s", str(exc))
-    if m:
-        return min(float(m.group(1)) + 1.0, 90.0)
-    return default
-
-
 def _llm_invoke(prompt: str, retries: int = 2):
-    """llm.invoke with backoff on Groq rate-limit / too-large errors."""
-    for attempt in range(retries + 1):
-        try:
-            return llm.invoke(prompt)
-        except Exception as e:
-            if attempt < retries and _is_rate_limit_error(e):
-                wait = _suggested_wait_seconds(e, default=20.0 * (attempt + 1))
-                print(f"      [WARN] Groq rate limit hit, retrying in {wait:.0f}s ...")
-                time.sleep(wait)
-                continue
-            raise
+    """Pipeline LLM call (GROQ_MODEL) with backoff on Groq rate-limit / too-large errors."""
+    return llm_client.invoke(
+        prompt,
+        model=GROQ_MODEL,
+        max_tokens=GROQ_MAX_TOKENS,
+        temperature=GROQ_TEMPERATURE,
+        retries=retries,
+    )
 
 
 def _parse_json(text: str):
@@ -505,6 +543,16 @@ Return ONLY a JSON array of 3 query strings. Example: ["query 1", "query 2", "qu
     return [claim]
 
 
+def _search_queries(claim: str) -> list[str]:
+    """
+    Two LLM rephrasings first, then the claim as written. A long claim sentence
+    searched verbatim ("...exactly 8,848 metres tall according to the latest
+    official survey") can return entirely unrelated pages, so it goes last.
+    """
+    queries = [q for q in _rephrase_query(claim) if q != claim][:2]
+    return queries + [claim]
+
+
 def search_claim(claim: str) -> str:
     """Search a single claim across 2-3 LLM rephrasings. Uses cache if available."""
     query_hash = _sha256(claim)
@@ -515,14 +563,8 @@ def search_claim(claim: str) -> str:
         print(f"      -> cache hit")
         return cached
 
-    # Rephrase claim into 2-3 queries
-    queries = [claim]
-    rephrased = _rephrase_query(claim)
-    for q in rephrased:
-        if q not in queries:
-            queries.append(q)
-    
-    print(f"      -> Searching across {len(queries)} query angles (original + rephrasing)...")
+    queries = _search_queries(claim)
+    print(f"      -> Searching across {len(queries)} query angles (rephrasings + original)...")
     
     all_raw_results = []
     for q in queries[:3]:
@@ -556,6 +598,75 @@ def search_all_claims(claims: list[str]) -> list[EvidenceItem]:
         ))
         time.sleep(SEARCH_DELAY_SECONDS)
     return evidence
+
+
+# ── Step 2 (MADAM-RAG): one document per source ─────────────────────────────
+
+SCRAPE_DEADLINE_SECONDS = 20
+
+
+def gather_claim_sources(claim: str) -> list[dict]:
+    """
+    Search the claim from several angles and build one short document per
+    source; each becomes a debate agent. Cached like search results, and
+    failures are never cached.
+    """
+    query_hash = _sha256(f"madam-sources:v4:{claim}")
+    cached = _get_cached_search(query_hash)
+    if cached:
+        try:
+            sources = json.loads(cached)
+            print("      -> cache hit (sources)")
+            return sources
+        except json.JSONDecodeError:
+            pass
+
+    def search(q: str) -> list[dict]:
+        try:
+            return search_tool.results(q)
+        except Exception as e:
+            print(f"      [WARN] Search error for query '{q}': {e}")
+            return []
+
+    # In parallel: one slow provider response shouldn't stall the other angles
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        per_query = list(pool.map(search, _search_queries(claim)[:3]))
+
+    # Interleave by rank (q1#1, q2#1, q3#1, q1#2, ...) so the panel mixes angles
+    results, seen = [], set()
+    for rank in range(max((len(r) for r in per_query), default=0)):
+        for res in per_query:
+            if rank < len(res) and res[rank]["url"] not in seen:
+                seen.add(res[rank]["url"])
+                results.append(res[rank])
+
+    # Over-fetch: syndicated copies of one story collapse into a single agent below
+    candidates = results[: MADAM_MAX_AGENTS * 3]
+    # urllib's timeout is per read, so a site that trickles bytes can hold a
+    # scrape open far longer. Sites that miss the deadline fall back to their
+    # search snippet.
+    pool = ThreadPoolExecutor(max_workers=6)
+    futures = {pool.submit(_scrape_url, r["url"], max_chars=20000): r["url"] for r in candidates}
+    finished, _ = wait(futures, timeout=SCRAPE_DEADLINE_SECONDS)
+    pool.shutdown(wait=False, cancel_futures=True)
+    pages = {futures[f]: f.result() for f in finished}
+
+    sources = build_sources(claim, candidates, pages, max_sources=MADAM_MAX_AGENTS * 2)
+    sources = merge_duplicate_sources(sources)[:MADAM_MAX_AGENTS]
+    copies = sum(len(s["also"]) for s in sources)
+    print(f"      -> {len(sources)} distinct sources for the debate"
+          + (f" ({copies} syndicated copies merged)" if copies else ""))
+    if sources:
+        _cache_search(f"madam-sources:{claim}", query_hash, json.dumps(sources))
+    return sources
+
+
+def _sources_as_evidence(sources: list[dict]) -> str:
+    if not sources:
+        return "No results found."
+    return "\n\n".join(
+        f"--- SOURCE {s['agent'] + 1}: {s['url']} ---\n{s['text']}" for s in sources
+    )
 
 
 # ── Step 3: Verify claims ───────────────────────────────────────────────────
@@ -855,18 +966,40 @@ def fetch_article_text(url: str) -> str:
 
 # ── Full pipeline ────────────────────────────────────────────────────────────
 
-def fact_check_stream(article_text: str, max_claims: int = 5):
+def _single_claim_fallback(claim: str, evidence: EvidenceItem) -> VerdictItem:
+    """Standard single-call verification for one claim (used if its debate fails)."""
+    try:
+        single = EvidenceItem(claim_index=0, query=claim, raw_results=evidence.raw_results)
+        return verify_claims([claim], [single])[0]
+    except Exception as e:
+        print(f"      [WARN] Fallback verification failed too: {e}")
+        return VerdictItem(claim=claim, verdict="NOT_ENOUGH_INFO", confidence=0.0,
+                           justification="Verification failed for this claim.")
+
+
+def fact_check_stream(
+    article_text: str,
+    max_claims: int = 5,
+    verification: str = "standard",
+    debate_rounds: int = DEFAULT_ROUNDS,
+):
     """
     Run the fact-checking pipeline as a generator, yielding progress events:
       {"event": "step",   "step": "extract" | "verify" | "summarize"}
       {"event": "claims", "claims": [...]}
       {"event": "step",   "step": "search", "current": i, "total": n, "claim": "..."}
       {"event": "done",   "result": {...}}          <- always the final event
+    With verification="madam" there are also:
+      {"event": "sources", "claim_index": i, "sources": [...]}   one entry per debate agent
+      {"event": "debate",  "claim_index": i, "type": ..., ...}   madam_rag.run_debate events;
+          the claim's debate_end also carries "claim_verdict", and "debate_failed" means
+          the claim fell back to single-call verification
     """
     start = time.time()
+    use_madam = verification == "madam"
 
     print("=" * 60)
-    print("       AGENTIC FACT-CHECKER")
+    print("       AGENTIC FACT-CHECKER" + ("  [MADAM-RAG]" if use_madam else ""))
     print("=" * 60)
 
     # 1 — Extract claims
@@ -878,20 +1011,69 @@ def fact_check_stream(article_text: str, max_claims: int = 5):
     # 2 — Search evidence (streamed per claim)
     print("\n>> Step 2: Searching for evidence ...")
     evidence = []
+    claim_sources: list[list[dict]] = []
+    # Debate mode gathers sources for two claims at a time (results still go out
+    # in claim order), so one slow search doesn't hold up the whole article.
+    gather_pool = ThreadPoolExecutor(max_workers=2) if use_madam else None
+    pending = [gather_pool.submit(gather_claim_sources, c) for c in claims] if gather_pool else []
     for i, claim in enumerate(claims):
         yield {
             "event": "step", "step": "search",
             "current": i + 1, "total": len(claims), "claim": claim,
         }
         print(f"   [SEARCH] Searching claim {i + 1}/{len(claims)} ...")
-        raw = search_claim(claim)
-        evidence.append(EvidenceItem(claim_index=i, query=claim, raw_results=raw))
-        time.sleep(SEARCH_DELAY_SECONDS)
+        if use_madam:
+            sources = pending[i].result()
+            claim_sources.append(sources)
+            evidence.append(EvidenceItem(claim_index=i, query=claim, raw_results=_sources_as_evidence(sources)))
+            yield {"event": "sources", "claim_index": i, "sources": sources}
+        else:
+            raw = search_claim(claim)
+            evidence.append(EvidenceItem(claim_index=i, query=claim, raw_results=raw))
+            time.sleep(SEARCH_DELAY_SECONDS)
+    if gather_pool:
+        gather_pool.shutdown()
 
     # 3 — Verify claims
     print("\n>> Step 3: Verifying claims ...")
     yield {"event": "step", "step": "verify"}
-    verdicts = verify_claims(claims, evidence)
+    debates: list[dict] = []
+    if use_madam:
+        verdicts = []
+        debate_call = llm_client.make_llm_call(FACTCHECK_DEBATE_MODEL, temperature=0.0)
+        grouped = FACTCHECK_DEBATE_STRATEGY != "paper"
+        for i, claim in enumerate(claims):
+            sources = claim_sources[i]
+            print(f"   [DEBATE] Claim {i + 1}/{len(claims)}: {len(sources)} agents, "
+                  + ("grouped" if grouped else f"up to {debate_rounds} rounds"))
+            record, verdict = None, None
+            try:
+                events = (
+                    run_grouped_debate(claim, sources, debate_call,
+                                       today=_today_str(), concurrency=MADAM_CONCURRENCY)
+                    if grouped else
+                    verify_claim_by_debate(claim, sources, debate_call, today=_today_str(),
+                                           num_rounds=debate_rounds, concurrency=MADAM_CONCURRENCY)
+                )
+                for ev in events:
+                    if ev["type"] == "debate_end":
+                        record = ev["record"]
+                        verdict = VerdictItem(**verdict_from_record(claim, record, sources))
+                        yield {"event": "debate", "claim_index": i, **ev, "claim_verdict": verdict.dict()}
+                    else:
+                        yield {"event": "debate", "claim_index": i, **ev}
+            except Exception as e:
+                print(f"      [WARN] Debate failed for claim {i + 1}: {e} -- using single-call verification")
+                verdict = _single_claim_fallback(claim, evidence[i])
+                yield {"event": "debate", "claim_index": i, "type": "debate_failed",
+                       "detail": str(e)[:300], "claim_verdict": verdict.dict()}
+            verdicts.append(verdict)
+            debates.append({
+                "claim_index": i, "claim": claim, "sources": sources,
+                "record": record, "model": FACTCHECK_DEBATE_MODEL,
+            })
+    else:
+        verdicts = verify_claims(claims, evidence)
 
     # 4 — Score
     credibility = compute_credibility_score(verdicts)
@@ -915,8 +1097,13 @@ def fact_check_stream(article_text: str, max_claims: int = 5):
         model_used=GROQ_MODEL,
         prompts_used={
             "extraction": "claim_extraction_v3",
-            "verification": "claim_verification_v3",
+            "verification": (
+                ("madam_grouped_v1" if FACTCHECK_DEBATE_STRATEGY != "paper" else "madam_rag_claim_v1")
+                if use_madam else "claim_verification_v3"
+            ),
         },
+        verification_method="madam" if use_madam else "standard",
+        debates=debates,
         duration_seconds=duration,
     )
     doc_id = save_result(result)
@@ -949,18 +1136,27 @@ def fact_check_stream(article_text: str, max_claims: int = 5):
             "credibility_score": credibility,
             "overall_verdict": overall_verdict,
             "duration_seconds": duration,
+            "verification_method": "madam" if use_madam else "standard",
+            "debates": debates,
         },
     }
 
 
-def fact_check(article_text: str, max_claims: int = 5) -> dict:
+def fact_check(
+    article_text: str,
+    max_claims: int = 5,
+    verification: str = "standard",
+    debate_rounds: int = DEFAULT_ROUNDS,
+) -> dict:
     """
     Run the complete fact-checking pipeline on an article (blocking wrapper
     around fact_check_stream). Returns a dict with claims, verdicts,
     credibility_score, overall_verdict, and MongoDB _id.
     """
     result = None
-    for event in fact_check_stream(article_text, max_claims=max_claims):
+    for event in fact_check_stream(
+        article_text, max_claims=max_claims, verification=verification, debate_rounds=debate_rounds
+    ):
         if event.get("event") == "done":
             result = event["result"]
     return result
@@ -1205,22 +1401,42 @@ def answer_question_stream(question: str):
 
 # ── Entry point: route each input to fact-checking or answering ─────────────
 
-def analyze_stream(text: str, max_claims: int = 5):
+def analyze_stream(
+    text: str,
+    max_claims: int = 5,
+    verification: str = "standard",
+    debate_rounds: int = DEFAULT_ROUNDS,
+):
     """Questions are answered; articles and statements are fact-checked. The
-    first event announces which mode was chosen so the UI can show the right steps."""
+    first event announces which mode was chosen so the UI can show the right steps.
+    `verification` and `debate_rounds` apply to fact-checks only."""
     if is_question(text):
         yield {"event": "mode", "mode": "answer"}
         yield from answer_question_stream(text)
     else:
         yield {"event": "mode", "mode": "fact_check"}
-        yield from fact_check_stream(text, max_claims=max_claims)
+        yield from fact_check_stream(
+            text,
+            max_claims=max_claims,
+            verification=verification,
+            debate_rounds=debate_rounds,
+        )
 
 
-def analyze(text: str, max_claims: int = 5) -> dict:
+def analyze(
+    text: str,
+    max_claims: int = 5,
+    verification: str = "standard",
+    debate_rounds: int = DEFAULT_ROUNDS,
+) -> dict:
     """Blocking wrapper around analyze_stream."""
     result = None
-    for event in analyze_stream(text, max_claims=max_claims):
+    for event in analyze_stream(
+        text,
+        max_claims=max_claims,
+        verification=verification,
+        debate_rounds=debate_rounds,
+    ):
         if event.get("event") == "done":
             result = event["result"]
     return result
-

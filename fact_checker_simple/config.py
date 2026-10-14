@@ -54,6 +54,18 @@ TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 # Model for the RAMDocs replication (eval_ramdocs.py); defaults to
 # GROQ_MODEL. A paper-style debate is ~13 requests per RAMDocs question.
 MADAM_MODEL = os.getenv("MADAM_MODEL", "") or GROQ_MODEL
+# Fact-checking debates run on their own model so they can't use up the main
+# pipeline's daily quota. gpt-oss-20b is the smallest model that judged all 8
+# hand-labelled claim/source cases correctly (numbers, dates, same-name people);
+# allam-2-7b, the smallest chat model on Groq, got 3 of 8 and mostly agreed
+# with whatever it was shown. 1,000 requests/day, ~25-40 debated articles.
+FACTCHECK_DEBATE_MODEL = os.getenv("FACTCHECK_DEBATE_MODEL", "openai/gpt-oss-20b")
+# "grouped" (default): sources form Supports/Refutes groups that argue it out.
+# "paper": every agent re-answers every round, as in the paper's code.
+FACTCHECK_DEBATE_STRATEGY = os.getenv("FACTCHECK_DEBATE_STRATEGY", "grouped")
+# Sources (= agents) debated per claim, and how many agents call the LLM at once.
+MADAM_MAX_AGENTS = int(os.getenv("MADAM_MAX_AGENTS", "4"))
+MADAM_CONCURRENCY = int(os.getenv("MADAM_CONCURRENCY", "3"))
 
 # ── Deployment ───────────────────────────────────────────────────────────────
 # Port the API binds to. Hugging Face Spaces uses 7860; Render/Railway/Fly

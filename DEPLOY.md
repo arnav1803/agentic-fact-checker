@@ -53,6 +53,7 @@ import by hand.
    | `MONGO_URI` | secret | the Atlas string from step 1 |
    | `TAVILY_API_KEY` | secret | from <https://tavily.com> — see the warning below |
    | `CORS_ORIGINS` | variable | `http://localhost:5173` for now; fixed in step 4 |
+   | `GROQ_MODEL` | variable | `qwen/qwen3.8-27b` (the old default, `llama-3.3-70b-versatile`, is retired) |
 
 4. Wait for the build, then confirm:
    `https://<user>-fact-checker-api.hf.space/api/health` → `{"status":"ok","mongo":"up",…}`.
@@ -117,6 +118,9 @@ browser console — a CORS message means step 4 didn't take effect.
   casual abuse but is per-instance and resets on restart. Set the Space to
   private if that matters, and point `VITE_API_BASE_URL` at it — private Spaces
   require an auth header, so you'd need a proxy route in the frontend.
+- **Groq's daily caps.** Each model gets roughly 200k tokens a day on the free
+  tier. The agent debate runs on its own model (`FACTCHECK_DEBATE_MODEL`), so a
+  busy day of debates can't stop quick checks from working.
 - **Auth is not real.** `X-User-Email` is a client-supplied ownership tag, so
   history is separated but not protected — any client can claim any address.
   Don't put anything private in there until it's swapped for verified tokens.

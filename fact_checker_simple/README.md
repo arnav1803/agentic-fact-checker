@@ -21,7 +21,7 @@ backend README and the Space manifest.
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/api/fact-check` | Run the pipeline on an article (blocking) |
+| POST | `/api/fact-check` | Run the pipeline on an article (blocking). `verification`: `standard` or `madam` |
 | POST | `/api/fact-check/stream` | Same, streaming NDJSON progress events |
 | GET | `/api/history` | Recent fact-checks (pagination, search, per-user) |
 | GET | `/api/fact-check/{id}` | One fact-check by id |
@@ -40,7 +40,12 @@ Interactive docs are at `/docs`.
 | `TAVILY_API_KEY` | strongly recommended | Search provider that works from datacenter IPs — see below |
 | `CORS_ORIGINS` | yes, in production | Comma-separated frontend origins, e.g. `https://your-app.vercel.app` |
 | `MONGO_DB` | no | Defaults to `fact_checker` |
-| `GROQ_MODEL` | no | Defaults to `llama-3.3-70b-versatile` |
+| `GROQ_MODEL` | no | Defaults to `qwen/qwen3.8-27b` (`llama-3.3-70b-versatile` is retired on Groq) |
+| `FACTCHECK_DEBATE_MODEL` | no | Model for the analyzer's agent debate. Defaults to `openai/gpt-oss-20b`, kept separate so debates can't use up the quick check's daily quota |
+| `FACTCHECK_DEBATE_STRATEGY` | no | `grouped` (default: Supports/Refutes groups) or `paper` (every agent re-answers every round) |
+| `MADAM_MODEL` | no | Model for `eval_ramdocs.py` (the paper replication). Defaults to `GROQ_MODEL` |
+| `MADAM_MAX_AGENTS` | no | Distinct sources debated per claim. Defaults to 4 |
+| `GROQ_REASONING_EFFORT` | no | Applied to gpt-oss models only. Defaults to `low` |
 | `SERPAPI_API_KEY` | no | First-choice search provider when set |
 | `CORS_ORIGIN_REGEX` | no | Defaults to `https://.*\.vercel\.app` (preview deploys) |
 | `AUTO_SEED_PROMPTS` | no | Set `false` to stop seeding prompts on startup |

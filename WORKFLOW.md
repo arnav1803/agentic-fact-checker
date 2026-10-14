@@ -21,7 +21,7 @@ Every `POST /api/fact-check` runs this six-step pipeline:
 article text
    │
    ▼
-[1] CLAIM EXTRACTION        LLM (Groq llama-3.3-70b) + "claim_extraction" v3 prompt from MongoDB
+[1] CLAIM EXTRACTION        LLM (Groq GROQ_MODEL) + "claim_extraction" v3 prompt from MongoDB
    │                        → JSON array of atomic, verifiable claims (max_claims cap)
    ▼
 [2] EVIDENCE SEARCH         per claim:
@@ -90,12 +90,16 @@ Upgrade flow: edit `seed_prompts.py`, run `python seed_prompts.py`
 | Method | Path | What it does |
 |---|---|---|
 | `POST` | `/api/fact-check` | Run the pipeline (blocking). Body: `{article_text OR url, max_claims (1–10), force}`. If a **`url`** is given, the backend downloads the page and extracts the article text automatically. If the **identical article** was checked in the last hour, the saved result is returned instantly unless `force: true`. Optional `X-User-Email` header tags the result's owner. |
-| `POST` | `/api/fact-check/stream` | Same input, but streams **real pipeline progress** as NDJSON — one JSON object per line: `{"event":"step","step":"extract"}`, `{"event":"claims","claims":[...]}`, per-claim `search` events with `current`/`total`, `verify`, `summarize`, then `{"event":"done","result":{...}}` (or `{"event":"error"}`). Dedup hits stream a single instant `done` event. |
+| `POST` | `/api/fact-check/stream` | Same input, but streams **real pipeline progress** as NDJSON — one JSON object per line: `{"event":"step","step":"extract"}`, `{"event":"claims","claims":[...]}`, per-claim `search` events with `current`/`total`, `verify`, `summarize`, then `{"event":"done","result":{...}}` (or `{"event":"error"}`). `{"event":"ping"}` is sent every 15s while a step is busy, so clients can tell a slow step from a dead connection. Dedup hits stream a single instant `done` event. |
 | `GET` | `/api/history` | Newest-first list. Query params: `limit` (≤100), `offset`, `q` (case-insensitive text search). With `X-User-Email`, returns only that user's checks. |
 | `GET` | `/api/fact-check/{id}` | Full saved result by Mongo `_id` (400 invalid id, 404 missing). |
 | `DELETE` | `/api/fact-check/{id}` | Delete a result (400/404 on bad ids). |
 | `GET` | `/api/stats` | Aggregates: total checks, average credibility, verdict distribution. Filtered per user when `X-User-Email` is sent. |
-| `GET` | `/api/health` | Liveness **and** MongoDB ping: `{status, mongo, model}`. |
+| `GET` | `/api/health` | Liveness **and** MongoDB ping: `{status, mongo, model, debate_model}`. |
+
+Both fact-check endpoints also take `verification` (`standard` or `madam`).
+With `madam`, the stream adds `sources` and `debate` events (one agent per
+source, groups, advocates, aggregator) that drive the live debate view.
 
 Other API behaviors:
 - **Rate limiting**: max 6 pipeline runs per 5 minutes per client IP (dedup
@@ -123,7 +127,10 @@ Other API behaviors:
 GROQ_API_KEY=...            # required — LLM
 MONGO_URI=...               # required — MongoDB
 MONGO_DB=fact_checker
-GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_MODEL=qwen/qwen3.8-27b          # llama-3.3-70b-versatile is retired on Groq
+FACTCHECK_DEBATE_MODEL=openai/gpt-oss-20b   # agent debate (separate daily quota)
+FACTCHECK_DEBATE_STRATEGY=grouped           # or "paper"
+MADAM_MODEL=                                # eval_ramdocs.py; defaults to GROQ_MODEL
 SERPAPI_API_KEY=...         # search provider #1 (optional)
 TAVILY_API_KEY=...          # search provider #2 (optional)
 SEARCH_CACHE_TTL_HOURS=24
@@ -192,6 +199,15 @@ see each other's history. The signed-in email is also sent to the backend
   confidence bar, and clickable source links
 - **Export**: copy full Markdown report, download `.md`, download `.json`
 - Recent-checks sidebar (pinned items first)
+
+- **How claims are checked**: *Quick check* (one LLM call judges every claim)
+  or *Agent debate* (MADAM-RAG, the default). In debate mode each claim's
+  sources are seated at a live debate table: seats take each agent's stance,
+  agreeing sources move together into Supports and Refutes groups, each
+  group's advocate argues its case, and the aggregator's ruling is drawn on the
+  spokes (relied on, flagged, ignored). After the run, a collapsible "How the
+  sources debated" section on the results page keeps every claim's debate
+  (table, transcript, how positions shifted, ruling) and can replay it.
 
 ### `/history` — your history
 - **Stats row**: total checks, average credibility, credible count, low count
@@ -266,3 +282,8 @@ npm run dev        # http://localhost:8080
 - Rate limiting is in-memory per process — resets on restart, not shared
   across multiple workers.
 - Search quality depends on provider keys (SerpAPI → Tavily → DuckDuckGo fallback order).
+- Groq's free tier caps each model at roughly 200k tokens a day. A daily-limit
+  error stops immediately with a clear message rather than retrying.
+- The replication uses Qwen or gpt-oss, because the paper's Llama-3.3-70B is
+  retired on Groq, and a random sample of RAMDocs rather than all 500 questions.
+  Compare how the methods rank, not the exact numbers.

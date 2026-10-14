@@ -1,8 +1,18 @@
 import { z } from "zod";
-import type { FactCheckRequest, FactCheckResult, HistoryItem, StreamEvent } from "./types";
+import type {
+  ClaimDebate,
+  DebateEvent,
+  DebateSource,
+  FactCheckRequest,
+  FactCheckResult,
+  HistoryItem,
+  StreamEvent,
+  Verdict,
+} from "./types";
+import { MOCK_EVENT_DELAY, mockClaimDebate, mockClaimSources } from "./mock-debate";
 
-const BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
-const USE_MOCK = !BASE_URL;
+export const BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
+export const USE_MOCK = !BASE_URL;
 
 const verdictSchema = z.object({
   claim: z.string(),
@@ -21,6 +31,23 @@ const factCheckResultSchema = z.object({
   model: z.string().optional(),
   article_text: z.string().optional(),
   created_at: z.string().optional(),
+  verification_method: z.enum(["standard", "madam"]).optional(),
+  // Debate records are large and nested; check the envelope, trust the rest.
+  debates: z
+    .array(
+      z.object({
+        claim_index: z.number(),
+        claim: z.string(),
+        sources: z.array(z.object({ agent: z.number(), text: z.string() }).passthrough()),
+        record: z
+          .object({ rounds: z.array(z.array(z.any())) })
+          .passthrough()
+          .nullable(),
+        model: z.string().optional(),
+      }),
+    )
+    .optional()
+    .transform((d) => d as ClaimDebate[] | undefined),
   mode: z.enum(["fact_check", "answer"]).optional(),
   answer: z.string().optional(),
   sources: z.array(z.string()).optional(),
@@ -111,12 +138,12 @@ function delay(ms: number, signal?: AbortSignal) {
     const t = setTimeout(resolve, ms);
     signal?.addEventListener("abort", () => {
       clearTimeout(t);
-      reject(new DOMException("Aborted", "AbortError"));
+      reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
     });
   });
 }
 
-function mockAnalyze(req: FactCheckRequest): FactCheckResult {
+function mockAnalyze(req: FactCheckRequest, debates?: ClaimDebate[]): FactCheckResult {
   const articleText = req.article_text ?? "";
   const sentences = articleText
     .split(/(?<=[.!?])\s+/)
@@ -128,7 +155,19 @@ function mockAnalyze(req: FactCheckRequest): FactCheckResult {
     "REFUTES",
     "NOT_ENOUGH_INFO",
   ];
-  const verdicts = claims.map((claim, i) => {
+  const verdicts: Verdict[] = claims.map((claim, i) => {
+    const debated = debates?.[i]?.record?.final;
+    if (debated?.verdict) {
+      return {
+        claim,
+        verdict: debated.verdict,
+        confidence: debated.confidence ?? 0.5,
+        justification: `${debated.explanation}\nSources: ${debates![i].sources
+          .filter((s) => debated.reliable_agents?.includes(s.agent))
+          .map((s) => s.url)
+          .join(" ")}`,
+      };
+    }
     const verdict = kinds[i % kinds.length];
     const confidence =
       verdict === "SUPPORTS"
@@ -169,9 +208,11 @@ function mockAnalyze(req: FactCheckRequest): FactCheckResult {
     credibility_score: Number(avg.toFixed(2)),
     overall_verdict: "This is a mock analysis. Connect to the backend for real AI verdicts.",
     duration_seconds: Number((2 + Math.random() * 2).toFixed(1)),
-    model: "llama-3.3-70b-versatile (mock)",
+    model: "qwen/qwen3.8-27b (mock)",
     article_text: articleText,
     created_at: new Date().toISOString(),
+    verification_method: debates ? "madam" : "standard",
+    debates,
   };
   saveResult(result);
   const hist = loadHistory();
@@ -186,7 +227,11 @@ function mockAnalyze(req: FactCheckRequest): FactCheckResult {
 }
 
 // ---------- Public API ----------
-async function fetchJson<T>(url: string, init: RequestInit, schema: z.ZodType<T>): Promise<T> {
+async function fetchJson<T>(
+  url: string,
+  init: RequestInit,
+  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
+): Promise<T> {
   const res = await fetch(url, init);
   if (!res.ok) {
     throw await responseError(res);
@@ -259,17 +304,49 @@ export async function analyzeArticleStream(
       err.status = 400;
       throw err;
     }
+    const debate = req.verification === "madam";
+    const claims = (req.article_text ?? "")
+      .split(/(?<=[.!?])\s+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 20)
+      .slice(0, req.max_claims);
     onEvent({ event: "step", step: "extract" });
     await delay(700, signal);
-    onEvent({ event: "step", step: "search", current: 1, total: 2 });
-    await delay(600, signal);
-    onEvent({ event: "step", step: "search", current: 2, total: 2 });
-    await delay(600, signal);
+    onEvent({ event: "claims", claims });
+    const sources: DebateSource[][] = [];
+    for (let i = 0; i < claims.length; i++) {
+      onEvent({
+        event: "step",
+        step: "search",
+        current: i + 1,
+        total: claims.length,
+        claim: claims[i],
+      });
+      await delay(debate ? 450 : 600, signal);
+      if (debate) {
+        sources.push(mockClaimSources(claims[i]));
+        onEvent({ event: "sources", claim_index: i, sources: sources[i] });
+      }
+    }
     onEvent({ event: "step", step: "verify" });
-    await delay(400, signal);
+    let debates: ClaimDebate[] | undefined;
+    if (debate) {
+      debates = [];
+      for (let i = 0; i < claims.length; i++) {
+        let record: ClaimDebate["record"] = null;
+        for (const ev of mockClaimDebate(claims[i])) {
+          if (ev.type === "debate_end") record = ev.record;
+          onEvent({ event: "debate", claim_index: i, ...ev });
+          await delay(MOCK_EVENT_DELAY[ev.type], signal);
+        }
+        debates.push({ claim_index: i, claim: claims[i], sources: sources[i], record });
+      }
+    } else {
+      await delay(400, signal);
+    }
     onEvent({ event: "step", step: "summarize" });
     await delay(300, signal);
-    return mockAnalyze(req);
+    return mockAnalyze(req, debates);
   }
 
   const res = await fetch(`${BASE_URL}/api/fact-check/stream`, {
@@ -279,23 +356,15 @@ export async function analyzeArticleStream(
     signal,
   });
   if (!res.ok) throw await responseError(res);
-  if (!res.body) throw new Error("Streaming is not supported by this browser");
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
   let final: FactCheckResult | null = null;
-
-  const handleLine = (line: string) => {
-    if (!line.trim()) return;
-    let ev: StreamEvent;
-    try {
-      ev = JSON.parse(line) as StreamEvent;
-    } catch {
-      return; // skip malformed line
-    }
+  await readNdjson<StreamEvent>(res, (ev) => {
     if (ev.event === "error") {
-      throw new Error(ev.detail || "Pipeline error");
+      // The server finished with a failure; rerunning the same request would
+      // usually fail the same way and spend the quota twice, so it isn't retried.
+      const err = new Error(ev.detail || "Pipeline error");
+      err.name = "PipelineError";
+      throw err;
     }
     if (ev.event === "done") {
       const parsed = factCheckResultSchema.safeParse(ev.result);
@@ -304,6 +373,28 @@ export async function analyzeArticleStream(
       return;
     }
     onEvent(ev);
+  });
+
+  if (!final) throw new Error("The analysis stream ended unexpectedly");
+  return final;
+}
+
+/** Feed each JSON line of an NDJSON response body to `onLine`. */
+export async function readNdjson<T>(res: Response, onLine: (value: T) => void): Promise<void> {
+  if (!res.body) throw new Error("Streaming is not supported by this browser");
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  const handle = (line: string) => {
+    if (!line.trim()) return;
+    let value: T;
+    try {
+      value = JSON.parse(line) as T;
+    } catch {
+      return; // skip malformed line
+    }
+    onLine(value);
   };
 
   for (;;) {
@@ -314,14 +405,13 @@ export async function analyzeArticleStream(
     while ((nl = buffer.indexOf("\n")) >= 0) {
       const line = buffer.slice(0, nl);
       buffer = buffer.slice(nl + 1);
-      handleLine(line);
+      handle(line);
     }
   }
-  handleLine(buffer); // trailing line without newline
-
-  if (!final) throw new Error("The analysis stream ended unexpectedly");
-  return final;
+  handle(buffer); // trailing line without newline
 }
+
+export { delay, responseError };
 
 /** Delete a fact-check from the server DB. No-op in mock mode. */
 export async function deleteFactCheck(id: string): Promise<void> {

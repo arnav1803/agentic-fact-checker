@@ -1,3 +1,7 @@
+import { useRef, useState } from "react";
+import { useReducedMotion } from "framer-motion";
+import { DebateReview } from "@/features/debate/DebateReview";
+import { useDebatesOpen } from "@/features/debate/state";
 import type { FactCheckResult } from "@/lib/types";
 import { AnswerView } from "./AnswerView";
 import { ClaimCard } from "./ClaimCard";
@@ -53,8 +57,27 @@ function sectionAccent(title: string) {
 
 export function ResultView({ result }: Props) {
   if (result.mode === "answer") return <AnswerView result={result} />;
+  return <FactCheckView result={result} />;
+}
 
+function FactCheckView({ result }: Props) {
   const band = scoreBand(result.credibility_score);
+  const debates = result.debates ?? [];
+  const [debatesOpen, setDebatesOpen] = useDebatesOpen();
+  const [debateClaim, setDebateClaim] = useState(() => debates[0]?.claim_index ?? 0);
+  const debatesRef = useRef<HTMLElement>(null);
+  const reduceMotion = useReducedMotion();
+
+  const showDebate = (claim: number) => {
+    setDebateClaim(claim);
+    setDebatesOpen(true);
+    requestAnimationFrame(() =>
+      debatesRef.current?.scrollIntoView({
+        behavior: reduceMotion ? "auto" : "smooth",
+        block: "start",
+      }),
+    );
+  };
   const verdictSections = result.overall_verdict
     ? parseVerdictSections(result.overall_verdict)
     : [];
@@ -79,7 +102,10 @@ export function ResultView({ result }: Props) {
           <p className={`mt-2 text-sm ${bandColor}`}>{bandLabel}</p>
           <p className="mt-1 text-xs text-muted-foreground">
             Based on {result.verdicts.length} extracted{" "}
-            {result.verdicts.length === 1 ? "claim" : "claims"} verified against live web sources.
+            {result.verdicts.length === 1 ? "claim" : "claims"}{" "}
+            {result.verification_method === "madam"
+              ? "debated by one agent per web source (MADAM-RAG)."
+              : "verified against live web sources."}
           </p>
           <div className="mt-4 flex justify-center md:justify-start">
             <ReportActions result={result} />
@@ -115,10 +141,28 @@ export function ResultView({ result }: Props) {
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {result.verdicts.map((v, i) => (
-            <ClaimCard key={`${v.claim}-${i}`} verdict={v} index={i} />
+            <ClaimCard
+              key={`${v.claim}-${i}`}
+              verdict={v}
+              index={i}
+              debate={debates.find((d) => d.claim_index === i)}
+              onShowDebate={() => showDebate(i)}
+            />
           ))}
         </div>
       )}
+
+      {debates.length ? (
+        <DebateReview
+          ref={debatesRef}
+          debates={debates}
+          verdicts={result.verdicts}
+          open={debatesOpen}
+          onOpenChange={setDebatesOpen}
+          claim={debateClaim}
+          onClaimChange={setDebateClaim}
+        />
+      ) : null}
 
       <footer className="glass-card px-4 py-3 text-xs text-muted-foreground">
         Model: {result.model ?? "unknown"} • Duration: {result.duration_seconds}s •{" "}

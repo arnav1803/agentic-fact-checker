@@ -60,6 +60,12 @@ export function ProcessingSteps({ progress }: Props) {
           : "")
       : null;
 
+  const verifyDetail =
+    progress?.phase === "verify" && progress.debatingClaim !== undefined
+      ? `Agents debating claim ${progress.debatingClaim + 1} of ${progress.claims?.length ?? "?"}` +
+        (progress.debateRound ? `, round ${progress.debateRound}` : "")
+      : null;
+
   return (
     <ol className="glass-card space-y-3 p-6">
       {steps.map((s, i) => {
@@ -96,6 +102,9 @@ export function ProcessingSteps({ progress }: Props) {
               </span>
               {s.key === "search" && state === "active" && searchDetail ? (
                 <span className="block truncate text-xs text-muted-foreground">{searchDetail}</span>
+              ) : null}
+              {s.key === "verify" && state === "active" && verifyDetail ? (
+                <span className="block truncate text-xs text-muted-foreground">{verifyDetail}</span>
               ) : null}
               {s.key === "extract" && state !== "pending" && progress?.claims?.length ? (
                 <span className="block text-xs text-muted-foreground">

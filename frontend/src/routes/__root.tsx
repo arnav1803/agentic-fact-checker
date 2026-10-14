@@ -169,7 +169,7 @@ function AuthLinks() {
   return (
     <Link
       to="/"
-      className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
+      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-primary px-2.5 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90 sm:px-3"
     >
       <LogIn className="size-3.5" />
       Sign in
@@ -185,28 +185,28 @@ function Header() {
           <span className="grid size-9 place-items-center rounded-lg bg-primary/15 text-primary ring-1 ring-primary/30">
             <ShieldCheck className="size-5" />
           </span>
-          <div className="leading-tight">
+          <div className="hidden leading-tight sm:block">
             <div className="text-sm font-semibold">FactCheck AI</div>
             <div className="text-[11px] text-muted-foreground">AI-powered news verification</div>
           </div>
         </Link>
-        <nav className="flex items-center gap-1 text-sm">
+        <nav className="flex items-center gap-0.5 text-sm sm:gap-1">
           <Link
             to="/analyze"
             activeOptions={{ exact: true }}
             activeProps={{ className: "bg-white/10 text-foreground" }}
-            className="rounded-lg px-3 py-1.5 text-muted-foreground hover:bg-white/5 hover:text-foreground"
+            className="rounded-lg px-2 py-1.5 text-muted-foreground hover:bg-white/5 hover:text-foreground sm:px-3"
           >
             Analyze
           </Link>
           <Link
             to="/history"
             activeProps={{ className: "bg-white/10 text-foreground" }}
-            className="rounded-lg px-3 py-1.5 text-muted-foreground hover:bg-white/5 hover:text-foreground"
+            className="rounded-lg px-2 py-1.5 text-muted-foreground hover:bg-white/5 hover:text-foreground sm:px-3"
           >
             History
           </Link>
-          <div className="mx-1 h-5 w-px bg-border" />
+          <div className="mx-0.5 h-5 w-px bg-border sm:mx-1" />
           <ThemeToggleButton />
           <AuthLinks />
         </nav>

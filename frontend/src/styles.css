@@ -69,6 +69,16 @@
   --verdict-refutes: oklch(0.55 0.24 25);
   --verdict-insufficient: oklch(0.65 0.16 75);
 
+  /* Debate seats: one hue per distinct answer, kept clear of the verdict hues.
+     Components read these raw tokens (var(--stance-1)) from SVG and inline
+     styles; @theme inline only emits --color-* aliases that utilities use. */
+  --stance-1: oklch(0.56 0.17 255);
+  --stance-2: oklch(0.55 0.2 305);
+  --stance-3: oklch(0.58 0.11 195);
+  --stance-4: oklch(0.58 0.2 350);
+  --stance-5: oklch(0.6 0.14 125);
+  --stance-6: oklch(0.58 0.13 50);
+
   --glass: oklch(1 0 0 / 60%);
   --glass-border: oklch(0 0 0 / 10%);
 
@@ -106,6 +116,13 @@
   --verdict-supports: oklch(0.76 0.13 145);
   --verdict-refutes: oklch(0.68 0.17 25);
   --verdict-insufficient: oklch(0.78 0.09 85);
+
+  --stance-1: oklch(0.72 0.13 250);
+  --stance-2: oklch(0.72 0.15 305);
+  --stance-3: oklch(0.76 0.1 195);
+  --stance-4: oklch(0.73 0.16 350);
+  --stance-5: oklch(0.78 0.13 125);
+  --stance-6: oklch(0.75 0.12 55);
 
   --glass: oklch(0.16 0.01 250);
   --glass-border: oklch(0.24 0.01 250);

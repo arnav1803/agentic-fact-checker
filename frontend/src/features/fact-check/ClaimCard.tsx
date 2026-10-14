@@ -1,14 +1,19 @@
 import { memo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import type { Verdict } from "@/lib/types";
+import { Users } from "lucide-react";
+import type { ClaimDebate, Verdict } from "@/lib/types";
 import { renderJustification, verdictColor, verdictLabel } from "./verdict";
 
 interface Props {
   verdict: Verdict;
   index: number;
+  /** MADAM-RAG debate behind this verdict, if it was verified that way */
+  debate?: ClaimDebate;
+  /** Open this claim's debate in the results page's debates section */
+  onShowDebate?: () => void;
 }
 
-function ClaimCardImpl({ verdict, index }: Props) {
+function ClaimCardImpl({ verdict, index, debate, onShowDebate }: Props) {
   const prefersReduced = useReducedMotion();
   const c = verdictColor(verdict.verdict);
   const pct = Math.round(verdict.confidence * 100);
@@ -54,7 +59,7 @@ function ClaimCardImpl({ verdict, index }: Props) {
         </div>
       </div>
 
-      <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+      <p className="mt-4 text-xs leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
         {parts.map((p, i) =>
           p.kind === "link" ? (
             <a
@@ -71,7 +76,39 @@ function ClaimCardImpl({ verdict, index }: Props) {
           ),
         )}
       </p>
+
+      {debate ? <DebateSummary debate={debate} onOpen={onShowDebate} /> : null}
     </motion.article>
+  );
+}
+
+function DebateSummary({ debate, onOpen }: { debate: ClaimDebate; onOpen?: () => void }) {
+  const r = debate.record;
+  const flagged = (r?.final?.unreliable_agents ?? [])
+    .map((i) => debate.sources[i]?.domain)
+    .filter(Boolean);
+  const changed = r ? r.rounds.flat().filter((t) => t.changed).length : 0;
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-xs">
+      <span className="text-muted-foreground">
+        {r
+          ? `${debate.sources.length} agents, ${r.rounds_used} ${r.rounds_used === 1 ? "round" : "rounds"}` +
+            (changed ? `, ${changed} changed their minds` : "")
+          : "No sources to debate"}
+        {flagged.length ? (
+          <span className="text-verdict-refutes"> · flagged {flagged.join(", ")}</span>
+        ) : null}
+      </span>
+      {r && onOpen ? (
+        <button
+          type="button"
+          onClick={onOpen}
+          className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-border px-2.5 font-medium text-foreground transition-colors hover:bg-accent"
+        >
+          <Users className="size-3.5" /> See the debate
+        </button>
+      ) : null}
+    </div>
   );
 }
 

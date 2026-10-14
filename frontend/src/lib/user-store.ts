@@ -1,4 +1,4 @@
-import type { FactCheckResult, HistoryItem } from "./types";
+import type { FactCheckResult, HistoryItem, VerificationMethod } from "./types";
 import { useAuth } from "./auth";
 
 /**
@@ -17,11 +17,16 @@ export interface UserHistoryEntry extends HistoryItem {
 export interface UserPrefs {
   defaultMaxClaims: number;
   autoSaveDraft: boolean;
+  /** "madam": verify claims by multi-agent debate (MADAM-RAG) */
+  verification: VerificationMethod;
+  debateRounds: number;
 }
 
 export const DEFAULT_PREFS: UserPrefs = {
   defaultMaxClaims: 5,
   autoSaveDraft: true,
+  verification: "madam",
+  debateRounds: 2,
 };
 
 const MAX_HISTORY = 100;

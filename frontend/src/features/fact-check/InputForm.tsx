@@ -1,8 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { ClipboardPaste, Eraser, FileText, Link2, Loader2, Sparkles, Wand2 } from "lucide-react";
+import {
+  ClipboardPaste,
+  Eraser,
+  FileText,
+  Link2,
+  Loader2,
+  Scale,
+  Sparkles,
+  Users,
+  Wand2,
+} from "lucide-react";
 import { toast } from "sonner";
 
-import { getPrefs, loadDraft, saveDraft } from "@/lib/user-store";
+import { getPrefs, loadDraft, saveDraft, setPrefs } from "@/lib/user-store";
+import type { VerificationMethod } from "@/lib/types";
 
 export const SAMPLE_ARTICLE =
   "The Indian government announced today that it will launch a ₹10,000 crore fund to support AI startups. According to the Finance Minister, the first grants will be disbursed by December 2026. The initiative aims to create 50,000 new jobs in the AI sector over the next three years.";
@@ -29,7 +40,15 @@ interface Props {
   loading: boolean;
   serverError: string | null;
   userKey: string;
-  onSubmit: (input: { article?: string; url?: string; maxClaims: number }) => void;
+  onSubmit: (input: AnalyzeInput) => void;
+}
+
+export interface AnalyzeInput {
+  article?: string;
+  url?: string;
+  maxClaims: number;
+  verification: VerificationMethod;
+  debateRounds: number;
 }
 
 export function InputForm({ loading, serverError, userKey, onSubmit }: Props) {
@@ -37,6 +56,8 @@ export function InputForm({ loading, serverError, userKey, onSubmit }: Props) {
   const [text, setText] = useState("");
   const [url, setUrl] = useState("");
   const [maxClaims, setMaxClaims] = useState(5);
+  const [verification, setVerification] = useState<VerificationMethod>("madam");
+  const [debateRounds, setDebateRounds] = useState(2);
   const [touched, setTouched] = useState(false);
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoSaveRef = useRef(true);
@@ -46,6 +67,8 @@ export function InputForm({ loading, serverError, userKey, onSubmit }: Props) {
     const prefs = getPrefs(userKey);
     autoSaveRef.current = prefs.autoSaveDraft;
     setMaxClaims(prefs.defaultMaxClaims);
+    setVerification(prefs.verification);
+    setDebateRounds(prefs.debateRounds);
     const draft = loadDraft(userKey);
     if (draft) {
       setText(draft);
@@ -92,8 +115,9 @@ export function InputForm({ loading, serverError, userKey, onSubmit }: Props) {
   const submit = () => {
     setTouched(true);
     if (isInvalid || loading) return;
-    if (mode === "text") onSubmit({ article: trimmed, maxClaims });
-    else onSubmit({ url: trimmedUrl, maxClaims });
+    const how = { maxClaims, verification, debateRounds };
+    if (mode === "text") onSubmit({ article: trimmed, ...how });
+    else onSubmit({ url: trimmedUrl, ...how });
   };
 
   const pasteFromClipboard = async () => {
@@ -254,6 +278,39 @@ export function InputForm({ loading, serverError, userKey, onSubmit }: Props) {
         />
       </div>
 
+      <fieldset>
+        <legend className="mb-2 text-sm font-medium">How should claims be checked?</legend>
+        <div className="grid gap-2 sm:grid-cols-2" role="radiogroup">
+          <VerifyOption
+            active={verification === "standard"}
+            onClick={() => {
+              setVerification("standard");
+              setPrefs(userKey, { verification: "standard" });
+            }}
+            icon={<Scale className="size-4" />}
+            title="Quick check"
+            body="One model reads all the evidence and rules on every claim at once."
+          />
+          <VerifyOption
+            active={verification === "madam"}
+            onClick={() => {
+              setVerification("madam");
+              setPrefs(userKey, { verification: "madam" });
+            }}
+            icon={<Users className="size-4" />}
+            title="Agent debate"
+            body="Each source gets its own agent. Sources that agree form a group, opposing groups argue it out, and an aggregator rules (MADAM-RAG)."
+          />
+        </div>
+        {verification === "madam" ? (
+          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+            Copies of the same story count once, and the group round only happens when sources
+            disagree. Usually under a minute per claim, on its own model so quick checks stay
+            available.
+          </p>
+        ) : null}
+      </fieldset>
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-muted-foreground">Powered by Groq LLM + live web search</p>
         <button
@@ -301,6 +358,38 @@ function ModeTab({
     >
       {icon}
       {label}
+    </button>
+  );
+}
+
+function VerifyOption({
+  active,
+  onClick,
+  icon,
+  title,
+  body,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      onClick={onClick}
+      className={`flex gap-3 rounded-lg border p-3 text-left transition ${
+        active ? "border-primary/60 bg-primary/10" : "border-border bg-card hover:border-primary/30"
+      }`}
+    >
+      <span className={`mt-0.5 ${active ? "text-primary" : "text-muted-foreground"}`}>{icon}</span>
+      <span>
+        <span className="block text-sm font-semibold text-foreground">{title}</span>
+        <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{body}</span>
+      </span>
     </button>
   );
 }

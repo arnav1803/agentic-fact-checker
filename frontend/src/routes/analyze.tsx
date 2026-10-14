@@ -9,7 +9,13 @@ import { useAuth } from "@/lib/auth";
 import { analyzeArticleStream } from "@/lib/api";
 import { clearDraft, recordResult, useUserKey } from "@/lib/user-store";
 import type { AnalysisProgress, FactCheckResult } from "@/lib/types";
-import { InputForm } from "@/features/fact-check/InputForm";
+import { InputForm, type AnalyzeInput } from "@/features/fact-check/InputForm";
+import {
+  EMPTY_LIVE_DEBATES,
+  LiveDebatePanel,
+  applyStreamEvent,
+  type LiveDebates,
+} from "@/features/debate/LiveDebatePanel";
 import { ProcessingSteps, ResultsSkeleton } from "@/features/fact-check/ProcessingSteps";
 import { ResultView } from "@/features/fact-check/ResultView";
 import { HistorySidebar } from "@/features/fact-check/HistorySidebar";
@@ -31,8 +37,6 @@ export const Route = createFileRoute("/analyze")({
 // The stream sends an event per pipeline step; abort only if it goes silent.
 const IDLE_TIMEOUT_MS = 90_000;
 
-type AnalyzeInput = { article?: string; url?: string; maxClaims: number };
-
 function HomePage() {
   // Guests are allowed: their checks are saved under the "guest" namespace
   // and migrate naturally once they sign in and re-run analyses.
@@ -44,51 +48,70 @@ function HomePage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [result, setResult] = useState<FactCheckResult | null>(null);
   const [progress, setProgress] = useState<AnalysisProgress | null>(null);
+  const [live, setLive] = useState<LiveDebates>(EMPTY_LIVE_DEBATES);
+  const [debating, setDebating] = useState(false);
 
   const mutation = useMutation<FactCheckResult, Error, AnalyzeInput>({
-    mutationFn: async ({ article, url, maxClaims }) => {
+    mutationFn: async ({ article, url, maxClaims, verification, debateRounds }) => {
       abortRef.current?.abort();
       const ctrl = new AbortController();
       abortRef.current = ctrl;
       setProgress(null);
+      setLive(EMPTY_LIVE_DEBATES);
+      setDebating(verification === "madam");
 
-      // Idle watchdog: each streamed event resets the clock, so long pipelines
-      // are fine but a stalled connection still aborts.
-      let idleTimer = setTimeout(
-        () => ctrl.abort(new DOMException("Timeout", "AbortError")),
-        IDLE_TIMEOUT_MS,
-      );
+      // Idle watchdog: each streamed event (the server pings every 15s while a
+      // step is busy) resets the clock, so long pipelines are fine but a dead
+      // connection still aborts. TimeoutError, unlike a user's cancel
+      // (AbortError), is reported to the user.
+      const stalled = () =>
+        ctrl.abort(
+          new DOMException("The server stopped responding. Try again in a minute.", "TimeoutError"),
+        );
+      let idleTimer = setTimeout(stalled, IDLE_TIMEOUT_MS);
       const resetIdle = () => {
         clearTimeout(idleTimer);
-        idleTimer = setTimeout(
-          () => ctrl.abort(new DOMException("Timeout", "AbortError")),
-          IDLE_TIMEOUT_MS,
-        );
+        idleTimer = setTimeout(stalled, IDLE_TIMEOUT_MS);
       };
 
       try {
         return await analyzeArticleStream(
-          { article_text: article, url, max_claims: maxClaims },
+          {
+            article_text: article,
+            url,
+            max_claims: maxClaims,
+            verification,
+            debate_rounds: debateRounds,
+          },
           (ev) => {
             resetIdle();
-            if (ev.event === "mode" && ev.mode) {
+            if (ev.event === "mode") {
               const mode = ev.mode;
               setProgress({ mode, phase: mode === "answer" ? "plan" : "extract" });
-            } else if (ev.event === "claims" && ev.claims) {
+            } else if (ev.event === "claims") {
               setProgress((p) => ({ ...p, phase: p?.phase ?? "extract", claims: ev.claims }));
-            } else if (ev.event === "queries" && ev.queries) {
+            } else if (ev.event === "queries") {
               setProgress((p) => ({ ...p, phase: p?.phase ?? "plan", queries: ev.queries }));
-            } else if (ev.event === "step" && ev.step) {
+            } else if (ev.event === "step") {
               setProgress((p) => ({
-                mode: p?.mode,
-                claims: p?.claims,
-                queries: p?.queries,
-                phase: ev.step!,
+                ...p,
+                phase: ev.step,
                 searchCurrent: ev.current,
                 searchTotal: ev.total,
                 claim: ev.claim,
                 query: ev.query,
               }));
+            } else if (ev.event === "sources" || ev.event === "debate") {
+              setLive((l) => applyStreamEvent(l, ev));
+              if (
+                ev.event === "debate" &&
+                (ev.type === "round_start" || ev.type === "debate_start")
+              ) {
+                const round = ev.type === "round_start" ? ev.round : 0;
+                setProgress((p) =>
+                  p ? { ...p, debatingClaim: ev.claim_index, debateRound: round } : p,
+                );
+              }
             }
           },
           ctrl.signal,
@@ -98,7 +121,17 @@ function HomePage() {
         clearTimeout(idleTimer);
       }
     },
-    retry: 1,
+    // One automatic retry for network blips only. Never after the user cancels
+    // (a retry would silently restart the whole pipeline), a stall, an error
+    // the server reported, or a 4xx response.
+    retry: (failureCount, err) => {
+      const status = (err as Error & { status?: number }).status;
+      return (
+        failureCount < 1 &&
+        !["AbortError", "TimeoutError", "PipelineError"].includes(err.name) &&
+        !(status && status >= 400 && status < 500)
+      );
+    },
     onSuccess: (data) => {
       setResult(data);
       setServerError(null);
@@ -155,7 +188,7 @@ function HomePage() {
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <InputForm
             loading={isLoading}
             serverError={serverError}
@@ -184,7 +217,11 @@ function HomePage() {
                 </button>
               </div>
               <ProcessingSteps progress={progress} />
-              <ResultsSkeleton />
+              {debating && progress?.claims?.length ? (
+                <LiveDebatePanel claims={progress.claims} live={live} />
+              ) : (
+                <ResultsSkeleton />
+              )}
             </div>
           ) : mutation.isError &&
             !((mutation.error as Error).name === "AbortError") &&

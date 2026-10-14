@@ -10,6 +10,13 @@ python-dotenv
 pymongo
 pydantic
 fastapi
-uvicorn
+uvicorn[standard]
 certifi
 google-search-results
+
+# DuckDuckGo fallback search (used when SERPAPI/TAVILY keys are absent).
+# Both distributions are listed because langchain-community imports the older
+# `duckduckgo_search` module on some versions and the renamed `ddgs` on others;
+# whichever it reaches for is then present.
+duckduckgo-search
+ddgs

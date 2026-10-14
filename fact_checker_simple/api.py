@@ -22,6 +22,7 @@ import json
 import threading
 import time
 from collections import defaultdict, deque
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -31,28 +32,65 @@ from fastapi.responses import RedirectResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from bson import ObjectId
 
-from config import ALLOWED_ORIGINS, GROQ_MODEL
+from config import (
+    AUTO_SEED_PROMPTS,
+    CORS_ORIGIN_REGEX,
+    CORS_ORIGINS,
+    GROQ_MODEL,
+    PORT,
+)
 from db import fact_checks_col, get_client
 from fact_checker import analyze, analyze_stream, fetch_article_text, input_hash
 
 # ── App ──────────────────────────────────────────────────────────────────────
 
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """
+    Seed the default prompt templates before serving traffic. A fresh deploy has
+    an empty `prompts` collection, and every pipeline run raises without one.
+    The seed upserts by name+version, so running it on each boot is a no-op once
+    the prompts are there. Set AUTO_SEED_PROMPTS=false to manage them by hand.
+    """
+    if AUTO_SEED_PROMPTS:
+        try:
+            from seed_prompts import seed
+            seed()
+        except Exception as e:
+            # Never block startup on this - /api/health still reports Mongo state.
+            print(f"[WARN] Prompt seeding failed: {e}")
+    yield
+
+
 app = FastAPI(
     title="Agentic Fact-Checker API",
     description="AI-powered news article verification using Groq LLM + web search",
     version="2.0.0",
+    lifespan=lifespan,
 )
 
-# Allow the local frontend dev server to call the API (CORS).
-# The regex also permits access from other devices on the same LAN (e.g. a
-# phone hitting http://192.168.x.x:8080) so the app works over the network.
-CORS_ORIGIN_REGEX = r"^http://(localhost|127\.0\.0\.1|(\d{1,3}\.){3}\d{1,3})(:\d+)?$"
+# ── CORS ─────────────────────────────────────────────────────────────────────
+# Local dev servers are always allowed, including from other devices on the
+# same LAN (e.g. a phone hitting http://192.168.x.x:8080). Deployed frontends
+# are added via the CORS_ORIGINS env var (comma-separated) and
+# CORS_ORIGIN_REGEX (defaults to matching Vercel preview URLs). See config.py.
+
+LOCAL_ORIGINS = [
+    f"http://{host}:{port}"
+    for host in ("localhost", "127.0.0.1")
+    for port in (3000, 5173, 5174, 8080, 8081)
+]
+LAN_ORIGIN_REGEX = r"^http://(localhost|127\.0\.0\.1|(\d{1,3}\.){3}\d{1,3})(:\d+)?$"
+
+ALLOWED_ORIGINS = LOCAL_ORIGINS + CORS_ORIGINS
 
 app.add_middleware(
     CORSMiddleware,
     # Deployed frontends (e.g. https://my-app.vercel.app) are allowed via ALLOWED_ORIGINS.
     allow_origins=ALLOWED_ORIGINS,
-    allow_origin_regex=CORS_ORIGIN_REGEX,
+    allow_origin_regex="|".join(
+        f"(?:{r})" for r in (LAN_ORIGIN_REGEX, CORS_ORIGIN_REGEX) if r
+    ),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -419,6 +457,6 @@ def health():
 
 if __name__ == "__main__":
     import uvicorn
-    print("Starting Fact-Checker API on http://localhost:8000")
-    print("Docs at http://localhost:8000/docs")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    print(f"Starting Fact-Checker API on http://localhost:{PORT}")
+    print(f"Docs at http://localhost:{PORT}/docs")
+    uvicorn.run(app, host="0.0.0.0", port=PORT)

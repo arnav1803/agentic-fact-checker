@@ -1,0 +1,5 @@
+# The Dockerfile is built on Linux (Hugging Face Spaces / Render / Fly). CRLF
+# line endings break backslash continuations in some builders, so pin LF even
+# when checked out on Windows.
+Dockerfile text eol=lf
+*.sh text eol=lf

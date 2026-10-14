@@ -39,16 +39,34 @@ SERPAPI_API_KEYS_BACKUP = [
 SERPAPI_API_KEYS = [k for k in ([SERPAPI_API_KEY] + SERPAPI_API_KEYS_BACKUP) if k]
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 
-# ── CORS ─────────────────────────────────────────────────────────────────────
-# Comma-separated origins allowed in addition to localhost/LAN, e.g. the
-# deployed frontend: ALLOWED_ORIGINS=https://my-app.vercel.app
-ALLOWED_ORIGINS = [
-    o.strip().rstrip("/") for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()
+# ── Deployment ───────────────────────────────────────────────────────────────
+# Port the API binds to. Hugging Face Spaces uses 7860; Render/Railway/Fly
+# inject $PORT; locally it falls back to 8000.
+PORT = int(os.getenv("PORT", "8000"))
+
+# Comma-separated list of browser origins allowed to call the API, e.g.
+#   CORS_ORIGINS=https://my-app.vercel.app,https://factcheck.example.com
+# ALLOWED_ORIGINS is accepted as an older name for the same setting.
+# Localhost and LAN dev servers are always allowed (see api.py).
+CORS_ORIGINS = [
+    o.strip().rstrip("/")
+    for o in (os.getenv("CORS_ORIGINS") or os.getenv("ALLOWED_ORIGINS", "")).split(",")
+    if o.strip()
 ]
+
+# Regex for origins allowed in addition to CORS_ORIGINS. Defaults to matching
+# Vercel preview deployments (every PR/branch gets its own *.vercel.app URL).
+CORS_ORIGIN_REGEX = os.getenv(
+    "CORS_ORIGIN_REGEX",
+    r"https://.*\.vercel\.app",
+)
+
+# Seed the default prompt templates into MongoDB on startup. Without prompts in
+# the DB the pipeline raises on every request, so a fresh deploy needs this.
+AUTO_SEED_PROMPTS = os.getenv("AUTO_SEED_PROMPTS", "true").lower() != "false"
 
 # ── Calibrated abstention ─────────────────────────────────────────────────────
 # When the evidence-sufficiency judge scores below this threshold, the verdict is
 # overridden to NOT_ENOUGH_INFO instead of committing to SUPPORTS/REFUTES. 0.0
 # disables abstention (baseline behaviour). Tuned on the FEVER dev sample.
 ABSTENTION_THRESHOLD = float(os.getenv("ABSTENTION_THRESHOLD", "0.0"))
-   # polite delay between searches

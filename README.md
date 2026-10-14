@@ -2,6 +2,10 @@
 
 This project consists of an AI-powered Fact-Checker Backend (Python/FastAPI) and a modern Frontend (React/Vite).
 
+**Deploying it?** See [DEPLOY.md](DEPLOY.md) - Vercel for the frontend, a Docker
+Space on Hugging Face for the backend, MongoDB Atlas for the database, all on
+free tiers.
+
 ## Prerequisites
 - Python 3.9+
 - Node.js (v18+) or Bun

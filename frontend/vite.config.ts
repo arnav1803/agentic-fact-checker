@@ -12,6 +12,9 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
-  // Deployed on Vercel (the Lovable default is Cloudflare Workers).
+  // Build for Vercel instead of the cloudflare-module default. Vercel's own
+  // auto-detection would pick this up anyway, but pinning it means `npm run
+  // build` produces the same .vercel/output locally as it does in CI.
+  // Inside a Lovable build this override is ignored and Cloudflare is forced.
   nitro: { preset: "vercel" },
 });

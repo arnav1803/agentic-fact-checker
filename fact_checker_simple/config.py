@@ -3,20 +3,31 @@ config.py — Central configuration loaded from .env
 """
 
 import os
+import sys
 from dotenv import load_dotenv
 
 load_dotenv()
 
+# Model output often contains characters like U+2011 (non-breaking hyphen) that a
+# Windows console (cp1252) can't encode; a print() of them would crash the
+# pipeline mid-request. Every entry point imports this module, so fix it here.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+
 # ── Groq ─────────────────────────────────────────────────────────────────────
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+# llama-3.3-70b-versatile (the paper's backbone) has been retired on Groq.
+# qwen/qwen3.8-27b answers directly (no hidden reasoning tokens), which keeps
+# MADAM-RAG's 128-token agent budget meaningful.
+GROQ_MODEL = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
+# Reasoning effort for gpt-oss models; ignored for others (see llm.py).
+# "low" keeps hidden reasoning from eating the short debate output budgets.
+GROQ_REASONING_EFFORT = os.getenv("GROQ_REASONING_EFFORT", "low")
 GROQ_TEMPERATURE = 0.1
 # Reasoning models (gpt-oss) spend hidden "thinking" tokens out of this budget,
 # so it needs headroom beyond the visible JSON / summary.
 GROQ_MAX_TOKENS = int(os.getenv("GROQ_MAX_TOKENS", "4096"))
-# Only sent to reasoning models. "low" keeps thinking short enough that long
-# verifications don't run out of tokens mid-JSON.
-GROQ_REASONING_EFFORT = os.getenv("GROQ_REASONING_EFFORT", "low")
 
 # ── MongoDB ──────────────────────────────────────────────────────────────────
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
@@ -38,6 +49,11 @@ SERPAPI_API_KEYS_BACKUP = [
 # Full ordered list of usable SerpAPI keys (primary first, then backups).
 SERPAPI_API_KEYS = [k for k in ([SERPAPI_API_KEY] + SERPAPI_API_KEYS_BACKUP) if k]
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
+
+# ── MADAM-RAG (multi-agent debate verification) ──────────────────────────────
+# Model for the RAMDocs replication (eval_ramdocs.py); defaults to
+# GROQ_MODEL. A paper-style debate is ~13 requests per RAMDocs question.
+MADAM_MODEL = os.getenv("MADAM_MODEL", "") or GROQ_MODEL
 
 # ── Deployment ───────────────────────────────────────────────────────────────
 # Port the API binds to. Hugging Face Spaces uses 7860; Render/Railway/Fly

@@ -325,15 +325,25 @@ class SearchTool:
         invoke(): SerpAPI -> Tavily -> DuckDuckGo, first non-empty wins.
         """
         items: list[dict] = []
-        if self.serp:
+        # Same key rotation as invoke(): move to the backup key when one is exhausted.
+        while self._serp_idx < len(self.serps):
             try:
-                data = self.serp.results(query)
+                data = self.serps[self._serp_idx].results(query)
+                if data.get("error"):
+                    raise ValueError(data["error"])
                 items = [
                     {"title": r.get("title", ""), "url": r.get("link", ""), "snippet": r.get("snippet", "")}
                     for r in data.get("organic_results", [])
                 ]
+                break
             except Exception as e:
+                if self._is_exhausted(e) and self._serp_idx < len(self.serps) - 1:
+                    self._serp_idx += 1
+                    print(f"      [WARN] SerpAPI key #{self._serp_idx} exhausted, "
+                          f"switching to backup key #{self._serp_idx + 1}: {e}")
+                    continue
                 print(f"      [WARN] SerpAPI failed: {e}")
+                break
         if not items and self.tavily:
             try:
                 data = self.tavily.invoke(query)

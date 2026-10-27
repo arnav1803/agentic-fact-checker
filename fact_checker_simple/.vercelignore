@@ -5,3 +5,9 @@ __pycache__/
 evals/
 check.py
 check2.py
+data/
+tests/
+results/
+.pytest_cache/
+Dockerfile
+.dockerignore

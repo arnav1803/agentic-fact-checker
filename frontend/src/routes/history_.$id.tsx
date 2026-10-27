@@ -1,4 +1,10 @@
-import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  useNavigate,
+  useRouter,
+  type ErrorComponentProps,
+} from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
@@ -26,12 +32,14 @@ export const Route = createFileRoute("/history_/$id")({
   ),
 });
 
-function HistoryDetailError({ error, reset }: { error: Error; reset: () => void }) {
+function HistoryDetailError({ error, reset }: ErrorComponentProps) {
   const router = useRouter();
+  // The router types `error` as unknown: anything can be thrown, not just Error.
+  const message = error instanceof Error ? error.message : String(error);
   return (
     <div className="glass-card p-8 text-center">
       <p className="text-sm">We couldn't load this fact-check.</p>
-      <p className="mt-1 text-xs text-muted-foreground">{error.message}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{message}</p>
       <button
         onClick={() => {
           router.invalidate();

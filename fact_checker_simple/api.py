@@ -20,8 +20,10 @@ Run:
 
 import json
 import queue
+import sys
 import threading
 import time
+import traceback
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
@@ -309,6 +311,14 @@ def run_fact_check(
 HEARTBEAT_SECONDS = 15
 
 
+def _log_traceback(where: str) -> None:
+    """Log the full traceback server-side: the client only gets the message."""
+    try:
+        print(f"[ERROR] {where}:\n{traceback.format_exc()}", file=sys.__stderr__, flush=True)
+    except Exception:
+        pass  # logging must never take the request down with it
+
+
 def _with_heartbeat(lines, every: float = HEARTBEAT_SECONDS):
     """
     Yield from an NDJSON line generator, adding {"event":"ping"} whenever it has
@@ -327,6 +337,7 @@ def _with_heartbeat(lines, every: float = HEARTBEAT_SECONDS):
                     break
                 q.put(line)
         except Exception as e:  # the wrapped generators report their own errors; belt and braces
+            _log_traceback("heartbeat producer")
             q.put(json.dumps({"event": "error", "detail": f"Pipeline error: {e}"}) + "\n")
         finally:
             lines.close()
@@ -394,6 +405,7 @@ def run_fact_check_streaming(
                 else:
                     yield json.dumps(event) + "\n"
         except Exception as e:
+            _log_traceback("stream pipeline")
             yield json.dumps({"event": "error", "detail": f"Pipeline error: {str(e)}"}) + "\n"
 
     return StreamingResponse(

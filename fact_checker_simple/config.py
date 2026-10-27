@@ -2,8 +2,11 @@
 config.py — Central configuration loaded from .env
 """
 
+import builtins
+import logging
 import os
 import sys
+import warnings
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -14,6 +17,38 @@ load_dotenv()
 for _stream in (sys.stdout, sys.stderr):
     if hasattr(_stream, "reconfigure"):
         _stream.reconfigure(encoding="utf-8", errors="replace")
+
+# On Vercel, stdout/stderr can be closed while a streamed response is still
+# running. Anything that then writes to them raises "I/O operation on closed
+# file" (ValueError), and the pipeline reports that as a failed fact-check.
+# Diagnostics must never fail a request, so all three writers drop the output:
+#   - print(): progress lines from worker threads (sources, debate agents)
+#   - logging: httpx logs every Groq call; Handler.handleError only swallows
+#     OSError, so its own report to a closed stderr escapes into the LLM call.
+#     raiseExceptions = False is the documented production setting.
+#   - warnings: LangChain warns when a model client is first created, and
+#     showwarning likewise only swallows OSError.
+_builtin_print = builtins.print
+_builtin_showwarning = warnings.showwarning
+
+
+def _safe_print(*args, **kwargs):
+    try:
+        _builtin_print(*args, **kwargs)
+    except (ValueError, OSError):
+        pass
+
+
+def _safe_showwarning(*args, **kwargs):
+    try:
+        _builtin_showwarning(*args, **kwargs)
+    except (ValueError, OSError):
+        pass
+
+
+builtins.print = _safe_print
+warnings.showwarning = _safe_showwarning
+logging.raiseExceptions = False
 
 # ── Groq ─────────────────────────────────────────────────────────────────────
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
